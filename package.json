@@ -1,0 +1,16 @@
+{
+  "name": "registan-level-test",
+  "version": "1.0.0",
+  "description": "Registan LC daraja o‘tish test platformasi",
+  "main": "lib/app.js",
+  "scripts": {
+    "dev": "node dev.js",
+    "start": "node dev.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.2.1",
+    "pg": "^8.23.0"
+  }
+}

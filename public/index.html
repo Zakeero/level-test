@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Registan LC — Daraja testi</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="logo">Registan <span>LC</span> · Level Test</div>
+</header>
+
+<!-- 1. Ro'yxatdan o'tish -->
+<main class="wrap" id="step-start">
+  <div class="card">
+    <h1>Keyingi darajaga o'tish testi</h1>
+    <p class="muted">Ma'lumotlaringizni kiriting va o'zingizning testingizni tanlang. Test boshlangandan keyin taymer ishga tushadi.</p>
+    <form id="start-form">
+      <div class="grid2">
+        <div><label>Ism va familiya *</label><input name="student_name" required placeholder="Aliyev Vali"></div>
+        <div><label>Telefon raqam *</label><input name="phone" required placeholder="+998 90 123 45 67" inputmode="tel"></div>
+        <div><label>Guruh</label><input name="group_name" placeholder="Masalan: A1-14"></div>
+        <div><label>O'qituvchi</label><input name="teacher" placeholder="O'qituvchi ismi"></div>
+      </div>
+      <label>Testni tanlang *</label>
+      <div class="test-list" id="test-list"><p class="muted">Yuklanmoqda...</p></div>
+      <div id="start-error" class="error hidden"></div>
+      <p><button type="submit" id="start-btn">Testni boshlash →</button></p>
+    </form>
+  </div>
+</main>
+
+<!-- 2. Test -->
+<main class="wrap hidden" id="step-test">
+  <div class="bar"><div class="card">
+    <strong id="t-title"></strong>
+    <div class="progress"><div id="t-progress"></div></div>
+    <span class="muted" id="t-count"></span>
+    <span class="timer" id="t-timer">--:--</span>
+  </div></div>
+  <div id="questions"></div>
+  <div class="card">
+    <div class="nav-dots" id="dots"></div>
+    <div id="submit-error" class="error hidden"></div>
+    <p><button id="submit-btn" class="btn-accent">Testni yakunlash</button></p>
+  </div>
+</main>
+
+<!-- 3. Natija -->
+<main class="wrap hidden" id="step-result"></main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const KEY = 'registan_attempt';
+let selectedTest = null, state = null, timerId = null, submitting = false;
+
+function store(v) { try { v ? localStorage.setItem(KEY, JSON.stringify(v)) : localStorage.removeItem(KEY); } catch (e) {} }
+function load() { try { return JSON.parse(localStorage.getItem(KEY)); } catch (e) { return null; } }
+
+async function api(url, body) {
+  const r = await fetch(url, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {});
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || 'Xatolik yuz berdi');
+  return data;
+}
+
+async function loadTests() {
+  const tests = await api('/api/tests');
+  const box = $('#test-list');
+  if (!tests.length) { box.innerHTML = '<p class="muted">Hozircha faol testlar yo\'q.</p>'; return; }
+  box.innerHTML = tests.map((t) => `
+    <div class="test-opt" data-id="${t.id}">
+      <div class="lvl">${esc(t.level_from)} → ${esc(t.level_to)}</div>
+      <div><strong>${esc(t.title)}</strong><br>
+      <small class="muted">${t.question_count} ta savol · ${t.duration_min} daqiqa · o'tish bali ${t.pass_percent}%</small>
+      ${t.description ? `<br><small class="muted">${esc(t.description)}</small>` : ''}</div>
+    </div>`).join('');
+  box.querySelectorAll('.test-opt').forEach((el) => el.onclick = () => {
+    box.querySelectorAll('.test-opt').forEach((x) => x.classList.remove('sel'));
+    el.classList.add('sel'); selectedTest = +el.dataset.id;
+  });
+}
+
+$('#start-form').onsubmit = async (e) => {
+  e.preventDefault();
+  const err = $('#start-error'); err.classList.add('hidden');
+  if (!selectedTest) { err.textContent = 'Iltimos, testni tanlang'; err.classList.remove('hidden'); return; }
+  const fd = Object.fromEntries(new FormData(e.target));
+  $('#start-btn').disabled = true;
+  try {
+    const data = await api('/api/attempts', { ...fd, test_id: selectedTest });
+    state = { ...data, answers: {}, offset: data.server_now - Date.now() };
+    store(state);
+    renderTest();
+  } catch (ex) { err.textContent = ex.message; err.classList.remove('hidden'); }
+  $('#start-btn').disabled = false;
+};
+
+function renderTest() {
+  $('#step-start').classList.add('hidden');
+  $('#step-test').classList.remove('hidden');
+  $('#t-title').textContent = `${state.test.level_from} → ${state.test.level_to}`;
+  $('#questions').innerHTML = state.questions.map((q, i) => `
+    <div class="card q" id="q${i}">
+      <div class="q-head"><span class="q-num">${i + 1}.</span><span class="tag">${esc(q.section)}</span></div>
+      <div class="q-text">${esc(q.text)}</div>
+      ${q.options.map((o, j) => `
+        <label class="opt ${state.answers[q.id] === j ? 'checked' : ''}">
+          <input type="radio" name="q${q.id}" value="${j}" ${state.answers[q.id] === j ? 'checked' : ''}> ${esc(o)}
+        </label>`).join('')}
+    </div>`).join('');
+  $('#dots').innerHTML = state.questions.map((q, i) => `<a href="#q${i}" data-q="${q.id}">${i + 1}</a>`).join('');
+  $('#questions').onchange = (e) => {
+    if (e.target.type !== 'radio') return;
+    const qid = +e.target.name.slice(1);
+    state.answers[qid] = +e.target.value;
+    e.target.closest('.q').querySelectorAll('.opt').forEach((l) => l.classList.toggle('checked', l.contains(e.target)));
+    store(state); updateProgress();
+  };
+  updateProgress();
+  clearInterval(timerId);
+  timerId = setInterval(tick, 500); tick();
+  window.scrollTo(0, 0);
+}
+
+function updateProgress() {
+  const done = Object.keys(state.answers).length, total = state.questions.length;
+  $('#t-count').textContent = `${done}/${total}`;
+  $('#t-progress').style.width = `${(done / total) * 100}%`;
+  document.querySelectorAll('#dots a').forEach((a) => a.classList.toggle('done', state.answers[a.dataset.q] !== undefined));
+}
+
+function tick() {
+  const left = Math.max(0, state.deadline - (Date.now() + state.offset));
+  const m = Math.floor(left / 60000), s = Math.floor(left / 1000) % 60;
+  const t = $('#t-timer');
+  t.textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  t.classList.toggle('warn', left < 60000);
+  if (left <= 0) { clearInterval(timerId); submit(true); }
+}
+
+$('#submit-btn').onclick = () => {
+  const left = state.questions.length - Object.keys(state.answers).length;
+  if (left > 0 && !confirm(`${left} ta savolga javob bermadingiz. Baribir yakunlaysizmi?`)) return;
+  submit(false);
+};
+
+async function submit(auto) {
+  if (submitting) return;
+  submitting = true; $('#submit-btn').disabled = true;
+  try {
+    const res = await api(`/api/attempts/${state.attempt_id}/submit`, { answers: state.answers });
+    clearInterval(timerId); store(null);
+    renderResult(res, auto);
+  } catch (ex) {
+    if (/allaqachon/.test(ex.message)) { store(null); location.reload(); return; }
+    $('#submit-error').textContent = ex.message + ' — qayta urinib ko\'ring.';
+    $('#submit-error').classList.remove('hidden');
+    submitting = false; $('#submit-btn').disabled = false;
+  }
+}
+
+function renderResult(r, auto) {
+  $('#step-test').classList.add('hidden');
+  const box = $('#step-result'); box.classList.remove('hidden');
+  const mins = Math.floor(r.duration_sec / 60), secs = r.duration_sec % 60;
+  box.innerHTML = `
+    <div class="card result-hero">
+      ${auto ? '<p class="muted">⏰ Vaqt tugadi — test avtomatik yakunlandi.</p>' : ''}
+      <h1>${esc(r.student_name)}</h1>
+      <p class="muted">${esc(r.test.title)}</p>
+      <div class="big">${r.percent}%</div>
+      <p>${r.score} / ${r.max} ball · ${mins} daq ${secs} son</p>
+      <span class="badge ${r.passed ? 'ok' : 'bad'}">
+        ${r.passed ? `✅ Tabriklaymiz! ${esc(r.test.level_to)} darajasiga o'tdingiz` : `❌ ${esc(r.test.level_to)} uchun ${r.test.pass_percent}% kerak edi`}
+      </span>
+    </div>
+    <div class="card"><h2>Bo'limlar bo'yicha</h2>
+      ${Object.entries(r.sections).map(([k, v]) => `
+        <div class="sec-row"><span class="name">${esc(k)}</span>
+          <div class="progress"><div style="width:${v.max ? (v.score / v.max) * 100 : 0}%"></div></div>
+          <span>${v.score}/${v.max}</span></div>`).join('')}
+    </div>
+    ${r.review ? `<div class="card"><h2>Javoblar tahlili</h2>
+      ${r.review.map((q, i) => `
+        <div class="rv ${q.ok ? 'ok' : 'bad'}">
+          <strong>${i + 1}. ${esc(q.text)}</strong>
+          <small>Sizning javobingiz: ${q.picked === null ? '<em>javob berilmagan</em>' : esc(q.picked)} ${q.ok ? '✅' : '❌'}</small>
+          ${q.ok ? '' : `<small>To'g'ri javob: <b>${esc(q.correct)}</b></small>`}
+        </div>`).join('')}</div>` : ''}
+    <p><a class="btn btn-light" href="/">Bosh sahifaga</a></p>`;
+  window.scrollTo(0, 0);
+}
+
+// Sahifa yangilansa, boshlangan testni davom ettirish
+const saved = load();
+if (saved && saved.deadline + 30000 > Date.now() + (saved.offset || 0)) { state = saved; renderTest(); }
+else { store(null); loadTests().catch((e) => $('#test-list').innerHTML = `<p class="error">${esc(e.message)}</p>`); }
+</script>
+</body>
+</html>

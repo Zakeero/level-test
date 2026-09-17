@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Registan LC — Admin panel</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="logo">Registan <span>LC</span> · Admin</div>
+  <nav class="tabs hidden" id="tabs">
+    <button data-tab="results" class="active">Natijalar</button>
+    <button data-tab="tests">Testlar</button>
+    <button id="logout">Chiqish</button>
+  </nav>
+</header>
+
+<!-- Kirish -->
+<main class="wrap" id="login-view" style="max-width:420px">
+  <div class="card">
+    <h2>Admin panelga kirish</h2>
+    <form id="login-form">
+      <label>Parol</label><input type="password" name="password" required autofocus>
+      <div id="login-error" class="error hidden"></div>
+      <p><button>Kirish</button></p>
+    </form>
+  </div>
+</main>
+
+<!-- Natijalar -->
+<main class="wrap wide hidden" id="results-view">
+  <div class="stats" id="stats"></div>
+  <div class="card">
+    <div class="row">
+      <h2 style="margin:0">Natijalar</h2><span class="spacer"></span>
+      <button class="btn-light btn-sm" id="export-csv">⬇ Excel (CSV) yuklab olish</button>
+    </div>
+    <div class="row" style="margin:12px 0">
+      <input id="f-search" placeholder="Ism, telefon, guruh, o'qituvchi..." style="flex:2;min-width:180px">
+      <select id="f-test" style="flex:1;min-width:150px"><option value="">Barcha testlar</option></select>
+      <select id="f-status" style="flex:1;min-width:120px">
+        <option value="">Hammasi</option><option value="passed">O'tganlar</option><option value="failed">O'tmaganlar</option>
+      </select>
+      <input type="date" id="f-from" style="flex:1;min-width:140px" title="Dan">
+      <input type="date" id="f-to" style="flex:1;min-width:140px" title="Gacha">
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Sana</th><th>O'quvchi</th><th>Guruh / O'qituvchi</th><th>Test</th><th>Ball</th><th>Natija</th></tr></thead>
+      <tbody id="results-body"></tbody>
+    </table></div>
+  </div>
+</main>
+
+<!-- Testlar -->
+<main class="wrap wide hidden" id="tests-view">
+  <div class="card">
+    <div class="row"><h2 style="margin:0">Testlar</h2><span class="spacer"></span><button id="new-test">+ Yangi test</button></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Daraja</th><th>Nomi</th><th>Savollar</th><th>Vaqt</th><th>O'tish</th><th>Topshirganlar</th><th>Holat</th><th></th></tr></thead>
+      <tbody id="tests-body"></tbody>
+    </table></div>
+  </div>
+</main>
+
+<!-- Savollar -->
+<main class="wrap wide hidden" id="questions-view">
+  <div class="card">
+    <div class="row">
+      <button class="btn-light btn-sm" id="back-tests">← Testlar</button>
+      <h2 style="margin:0" id="q-title"></h2><span class="spacer"></span>
+      <button class="btn-light" id="bulk-btn">📋 Ommaviy qo'shish</button>
+      <button id="new-q">+ Savol qo'shish</button>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>#</th><th>Bo'lim</th><th>Savol</th><th>To'g'ri javob</th><th>Ball</th><th></th></tr></thead>
+      <tbody id="q-body"></tbody>
+    </table></div>
+  </div>
+</main>
+
+<!-- Test formasi -->
+<dialog id="test-dlg"><form class="card" id="test-form" method="dialog">
+  <h2 id="test-dlg-title">Test</h2>
+  <label>Nomi *</label><input name="title" required>
+  <div class="grid2">
+    <div><label>Qaysi darajadan</label><select name="level_from"></select></div>
+    <div><label>Qaysi darajaga</label><select name="level_to"></select></div>
+    <div><label>Davomiyligi (daqiqa)</label><input type="number" name="duration_min" min="1" max="300" value="40"></div>
+    <div><label>O'tish bali (%)</label><input type="number" name="pass_percent" min="0" max="100" value="70"></div>
+  </div>
+  <label>Tavsif</label><textarea name="description" style="min-height:60px"></textarea>
+  <label class="check"><input type="checkbox" name="shuffle" checked> Savollar va variantlarni aralashtirish</label>
+  <label class="check"><input type="checkbox" name="show_answers" checked> Test oxirida to'g'ri javoblarni ko'rsatish</label>
+  <label class="check"><input type="checkbox" name="active" checked> Faol (o'quvchilarga ko'rinadi)</label>
+  <div id="test-error" class="error hidden"></div>
+  <div class="row" style="margin-top:16px"><span class="spacer"></span>
+    <button type="button" class="btn-light" data-close>Bekor qilish</button><button type="submit" value="save">Saqlash</button></div>
+</form></dialog>
+
+<!-- Savol formasi -->
+<dialog id="q-dlg"><form class="card" id="q-form" method="dialog">
+  <h2>Savol</h2>
+  <div class="grid2">
+    <div><label>Bo'lim</label><input name="section" list="sections" value="Grammar">
+      <datalist id="sections"><option>Grammar</option><option>Vocabulary</option><option>Reading</option><option>Listening</option></datalist></div>
+    <div><label>Ball</label><input type="number" name="points" min="1" value="1"></div>
+  </div>
+  <label>Savol matni *</label><textarea name="text" required placeholder="She ___ to school every day."></textarea>
+  <label>Variantlar (to'g'risini belgilang)</label>
+  <div id="opts"></div>
+  <button type="button" class="btn-light btn-sm" id="add-opt">+ Variant</button>
+  <div id="q-error" class="error hidden"></div>
+  <div class="row" style="margin-top:16px"><span class="spacer"></span>
+    <button type="button" class="btn-light" data-close>Bekor qilish</button><button type="submit" value="save">Saqlash</button></div>
+</form></dialog>
+
+<!-- Ommaviy import -->
+<dialog id="bulk-dlg"><form class="card" id="bulk-form" method="dialog">
+  <h2>Savollarni ommaviy qo'shish</h2>
+  <p class="muted">Har bir savolni bo'sh qator bilan ajrating. To'g'ri javob oldiga <b>*</b> qo'ying. Bo'lim nomini [kvadrat qavsda] yozing — keyingi savollar shu bo'limga tushadi.</p>
+  <pre class="hint">[Grammar]
+1. She ___ to school every day.
+a) go
+*b) goes
+c) going
+
+2. There ___ two cats.
+*a) are
+b) is
+
+[Vocabulary]
+3. The opposite of "hot" is ___.
+a) warm
+*b) cold</pre>
+  <textarea name="text" style="min-height:220px" required></textarea>
+  <div id="bulk-error" class="error hidden"></div>
+  <div class="row" style="margin-top:16px"><span class="spacer"></span>
+    <button type="button" class="btn-light" data-close>Bekor qilish</button><button type="submit" value="save">Qo'shish</button></div>
+</form></dialog>
+
+<!-- Natija tafsiloti -->
+<dialog id="res-dlg"><div class="card" id="res-body"></div></dialog>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const LEVELS = ['Beginner', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+const fmt = (ms) => new Date(ms).toLocaleString('uz-UZ', { timeZone: 'Asia/Tashkent', dateStyle: 'short', timeStyle: 'short' });
+let token = null, tests = [], currentTest = null, editingTest = null, editingQ = null;
+try { token = localStorage.getItem('registan_admin'); } catch (e) {}
+
+async function api(url, method = 'GET', body) {
+  const r = await fetch('/api/admin' + url, {
+    method, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (r.status === 401) { logout(); throw new Error('Qayta kiring'); }
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || 'Xatolik');
+  return data;
+}
+const showErr = (el, msg) => { el.textContent = msg; el.classList.toggle('hidden', !msg); };
+
+// ---------- kirish ----------
+$('#login-form').onsubmit = async (e) => {
+  e.preventDefault();
+  const r = await fetch('/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: e.target.password.value }) });
+  const d = await r.json();
+  if (!r.ok) return showErr($('#login-error'), d.error);
+  token = d.token; try { localStorage.setItem('registan_admin', token); } catch (e) {}
+  start();
+};
+function logout() {
+  token = null; try { localStorage.removeItem('registan_admin'); } catch (e) {}
+  document.querySelectorAll('main').forEach((m) => m.classList.add('hidden'));
+  $('#tabs').classList.add('hidden'); $('#login-view').classList.remove('hidden');
+}
+$('#logout').onclick = logout;
+
+function show(view) {
+  document.querySelectorAll('main').forEach((m) => m.classList.add('hidden'));
+  $(`#${view}-view`).classList.remove('hidden');
+  document.querySelectorAll('#tabs [data-tab]').forEach((b) => b.classList.toggle('active', view.startsWith(b.dataset.tab.slice(0, 4))));
+}
+document.querySelectorAll('#tabs [data-tab]').forEach((b) => b.onclick = () => {
+  show(b.dataset.tab); b.dataset.tab === 'results' ? loadResults() : loadTests();
+});
+document.querySelectorAll('[data-close]').forEach((b) => b.onclick = () => b.closest('dialog').close());
+
+async function start() {
+  try { await api('/stats'); } catch (e) { return; }
+  $('#login-view').classList.add('hidden'); $('#tabs').classList.remove('hidden');
+  show('results'); await loadTests(); loadResults();
+}
+
+// ---------- natijalar ----------
+function filters() {
+  const p = new URLSearchParams();
+  [['search', '#f-search'], ['test_id', '#f-test'], ['status', '#f-status'], ['from', '#f-from'], ['to', '#f-to']]
+    .forEach(([k, s]) => $(s).value && p.set(k, $(s).value));
+  return p.toString();
+}
+async function loadResults() {
+  const s = await api('/stats');
+  $('#stats').innerHTML = `
+    <div class="stat"><span class="muted">Topshirilgan testlar</span><b>${s.attempts}</b></div>
+    <div class="stat"><span class="muted">O'tganlar</span><b>${s.passed}</b></div>
+    <div class="stat"><span class="muted">O'tish ulushi</span><b>${s.attempts ? Math.round(s.passed / s.attempts * 100) : 0}%</b></div>
+    <div class="stat"><span class="muted">O'rtacha ball</span><b>${s.avg}%</b></div>`;
+  const rows = await api('/results?' + filters());
+  $('#results-body').innerHTML = rows.length ? rows.map((r) => `
+    <tr class="click" data-id="${r.id}">
+      <td>${fmt(r.finished_at)}</td>
+      <td><b>${esc(r.student_name)}</b><br><small class="muted">${esc(r.phone)}</small></td>
+      <td>${esc(r.group_name) || '—'}<br><small class="muted">${esc(r.teacher)}</small></td>
+      <td>${esc(r.level_from)} → ${esc(r.level_to)}</td>
+      <td><b>${r.percent}%</b><br><small class="muted">${r.score}/${r.max_score}</small></td>
+      <td><span class="badge ${r.passed ? 'ok' : 'bad'}">${r.passed ? "O'tdi" : "O'tmadi"}</span></td>
+    </tr>`).join('') : '<tr><td colspan="6" class="muted">Natijalar yo\'q</td></tr>';
+  document.querySelectorAll('#results-body tr.click').forEach((tr) => tr.onclick = () => openResult(tr.dataset.id));
+}
+let ft; ['#f-search', '#f-test', '#f-status', '#f-from', '#f-to'].forEach((s) =>
+  $(s).addEventListener('input', () => { clearTimeout(ft); ft = setTimeout(loadResults, 300); }));
+
+$('#export-csv').onclick = async () => {
+  const r = await fetch('/api/admin/results.csv?' + filters(), { headers: { Authorization: 'Bearer ' + token } });
+  const blob = await r.blob();
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'natijalar.csv' });
+  a.click(); URL.revokeObjectURL(a.href);
+};
+
+async function openResult(id) {
+  const r = await api('/results/' + id);
+  $('#res-body').innerHTML = `
+    <div class="row"><h2 style="margin:0">${esc(r.student_name)}</h2><span class="spacer"></span>
+      <button class="btn-light btn-sm" onclick="this.closest('dialog').close()">✕</button></div>
+    <p class="muted">${esc(r.phone)} · ${esc(r.group_name)} · ${esc(r.teacher)}<br>
+      ${fmt(r.finished_at)} · ${Math.round((r.finished_at - r.started_at) / 60000)} daqiqa</p>
+    <p><b style="font-size:24px">${r.percent}%</b> (${r.score}/${r.max_score})
+      <span class="badge ${r.passed ? 'ok' : 'bad'}">${r.passed ? "O'tdi" : "O'tmadi"}</span></p>
+    ${Object.entries(r.sections).map(([k, v]) => `<div class="sec-row"><span class="name">${esc(k)}</span>
+      <div class="progress"><div style="width:${v.max ? v.score / v.max * 100 : 0}%"></div></div><span>${v.score}/${v.max}</span></div>`).join('')}
+    <h2 style="margin-top:16px">Javoblar</h2>
+    ${r.review.map((q, i) => `<div class="rv ${q.ok ? 'ok' : 'bad'}"><strong>${i + 1}. ${esc(q.text)}</strong>
+      <small>Javob: ${q.picked === null ? '<em>berilmagan</em>' : esc(q.picked)} ${q.ok ? '✅' : '❌'}</small>
+      ${q.ok ? '' : `<small>To'g'ri: <b>${esc(q.correct)}</b></small>`}</div>`).join('')}
+    <p><button class="btn-danger btn-sm" id="del-res">Natijani o'chirish</button></p>`;
+  $('#del-res').onclick = async () => {
+    if (!confirm('Bu natija o\'chirilsinmi?')) return;
+    await api('/results/' + id, 'DELETE'); $('#res-dlg').close(); loadResults();
+  };
+  $('#res-dlg').showModal();
+}
+
+// ---------- testlar ----------
+async function loadTests() {
+  tests = await api('/tests');
+  const cur = $('#f-test').value;
+  $('#f-test').innerHTML = '<option value="">Barcha testlar</option>' +
+    tests.map((t) => `<option value="${t.id}">${esc(t.level_from)} → ${esc(t.level_to)} · ${esc(t.title)}</option>`).join('');
+  $('#f-test').value = cur;
+  $('#tests-body').innerHTML = tests.map((t) => `
+    <tr>
+      <td><span class="lvl">${esc(t.level_from)} → ${esc(t.level_to)}</span></td>
+      <td><b>${esc(t.title)}</b></td>
+      <td>${t.question_count}</td><td>${t.duration_min} daq</td><td>${t.pass_percent}%</td><td>${t.attempt_count}</td>
+      <td><span class="badge ${t.active ? 'ok' : 'bad'}">${t.active ? 'Faol' : 'Yopiq'}</span></td>
+      <td class="row">
+        <button class="btn-sm" data-q="${t.id}">Savollar</button>
+        <button class="btn-light btn-sm" data-edit="${t.id}">Tahrirlash</button>
+        <button class="btn-danger btn-sm" data-del="${t.id}">O'chirish</button>
+      </td>
+    </tr>`).join('') || '<tr><td colspan="8" class="muted">Testlar yo\'q</td></tr>';
+  document.querySelectorAll('[data-q]').forEach((b) => b.onclick = () => openQuestions(+b.dataset.q));
+  document.querySelectorAll('[data-edit]').forEach((b) => b.onclick = () => openTestForm(tests.find((t) => t.id === +b.dataset.edit)));
+  document.querySelectorAll('[data-del]').forEach((b) => b.onclick = async () => {
+    const t = tests.find((x) => x.id === +b.dataset.del);
+    if (!confirm(`"${t.title}" testi, uning barcha savollari va ${t.attempt_count} ta natijasi o'chiriladi. Davom etasizmi?`)) return;
+    await api('/tests/' + t.id, 'DELETE'); loadTests();
+  });
+}
+
+const lvlOpts = LEVELS.map((l) => `<option>${l}</option>`).join('');
+$('#test-form').level_from.innerHTML = lvlOpts; $('#test-form').level_to.innerHTML = lvlOpts;
+$('#new-test').onclick = () => openTestForm(null);
+function openTestForm(t) {
+  editingTest = t; const f = $('#test-form'); f.reset(); showErr($('#test-error'), '');
+  $('#test-dlg-title').textContent = t ? 'Testni tahrirlash' : 'Yangi test';
+  const v = t || { title: '', level_from: 'A1', level_to: 'A2', duration_min: 40, pass_percent: 70, description: '', shuffle: 1, show_answers: 1, active: 1 };
+  ['title', 'level_from', 'level_to', 'duration_min', 'pass_percent', 'description'].forEach((k) => f[k].value = v[k]);
+  ['shuffle', 'show_answers', 'active'].forEach((k) => f[k].checked = !!v[k]);
+  $('#test-dlg').showModal();
+}
+$('#test-form').onsubmit = async (e) => {
+  e.preventDefault(); const f = e.target;
+  const body = Object.fromEntries(['title', 'level_from', 'level_to', 'duration_min', 'pass_percent', 'description'].map((k) => [k, f[k].value]));
+  ['shuffle', 'show_answers', 'active'].forEach((k) => body[k] = f[k].checked);
+  try {
+    editingTest ? await api('/tests/' + editingTest.id, 'PUT', body) : await api('/tests', 'POST', body);
+    $('#test-dlg').close(); loadTests();
+  } catch (ex) { showErr($('#test-error'), ex.message); }
+};
+
+// ---------- savollar ----------
+$('#back-tests').onclick = () => { show('tests'); loadTests(); };
+async function openQuestions(id) {
+  currentTest = tests.find((t) => t.id === id) || currentTest;
+  show('questions');
+  $('#q-title').textContent = `${currentTest.level_from} → ${currentTest.level_to} · ${currentTest.title}`;
+  const qs = await api(`/tests/${currentTest.id}/questions`);
+  $('#q-body').innerHTML = qs.map((q, i) => `
+    <tr>
+      <td>${i + 1}</td><td><span class="tag">${esc(q.section)}</span></td>
+      <td>${esc(q.text)}<br><small class="muted">${q.options.map(esc).join(' · ')}</small></td>
+      <td><b style="color:var(--ok)">${esc(q.options[q.correct])}</b></td><td>${q.points}</td>
+      <td class="row"><button class="btn-light btn-sm" data-qe="${q.id}">Tahrirlash</button>
+        <button class="btn-danger btn-sm" data-qd="${q.id}">✕</button></td>
+    </tr>`).join('') || '<tr><td colspan="6" class="muted">Savollar yo\'q. "+ Savol qo\'shish" yoki "Ommaviy qo\'shish" tugmasini bosing.</td></tr>';
+  document.querySelectorAll('[data-qe]').forEach((b) => b.onclick = () => openQForm(qs.find((q) => q.id === +b.dataset.qe)));
+  document.querySelectorAll('[data-qd]').forEach((b) => b.onclick = async () => {
+    if (!confirm('Savol o\'chirilsinmi?')) return;
+    await api('/questions/' + b.dataset.qd, 'DELETE'); openQuestions(currentTest.id);
+  });
+}
+
+function addOpt(val = '', checked = false) {
+  const n = $('#opts').children.length;
+  const d = document.createElement('div'); d.className = 'opt-edit';
+  d.innerHTML = `<input type="radio" name="correct" ${checked ? 'checked' : ''} title="To'g'ri javob">
+    <input class="opt-val" placeholder="Variant ${String.fromCharCode(65 + n)}" value="${esc(val)}">
+    <button type="button" class="btn-light btn-sm">✕</button>`;
+  d.querySelector('button').onclick = () => d.remove();
+  $('#opts').appendChild(d);
+}
+$('#add-opt').onclick = () => addOpt();
+$('#new-q').onclick = () => openQForm(null);
+function openQForm(q) {
+  editingQ = q; const f = $('#q-form'); f.reset(); showErr($('#q-error'), ''); $('#opts').innerHTML = '';
+  f.section.value = q?.section || 'Grammar'; f.points.value = q?.points || 1; f.text.value = q?.text || '';
+  (q?.options || ['', '', '', '']).forEach((o, i) => addOpt(o, q ? i === q.correct : false));
+  $('#q-dlg').showModal();
+}
+$('#q-form').onsubmit = async (e) => {
+  e.preventDefault(); const f = e.target;
+  const rows = [...document.querySelectorAll('#opts .opt-edit')];
+  const filled = rows.filter((r) => r.querySelector('.opt-val').value.trim());
+  const body = {
+    section: f.section.value, points: f.points.value, text: f.text.value,
+    options: filled.map((r) => r.querySelector('.opt-val').value),
+    correct: filled.findIndex((r) => r.querySelector('[type=radio]').checked),
+  };
+  try {
+    editingQ ? await api('/questions/' + editingQ.id, 'PUT', body) : await api(`/tests/${currentTest.id}/questions`, 'POST', body);
+    $('#q-dlg').close(); openQuestions(currentTest.id);
+  } catch (ex) { showErr($('#q-error'), ex.message); }
+};
+
+$('#bulk-btn').onclick = () => { $('#bulk-form').reset(); showErr($('#bulk-error'), ''); $('#bulk-dlg').showModal(); };
+$('#bulk-form').onsubmit = async (e) => {
+  e.preventDefault();
+  try {
+    const r = await api(`/tests/${currentTest.id}/import`, 'POST', { text: e.target.text.value });
+    $('#bulk-dlg').close(); alert(`${r.added} ta savol qo'shildi`); openQuestions(currentTest.id);
+  } catch (ex) { showErr($('#bulk-error'), ex.message); }
+};
+
+if (token) start();
+</script>
+</body>
+</html>
