@@ -1,4 +1,4 @@
-# Registan LC — Daraja o'tish test platformasi
+# Registon — Daraja o'tish test platformasi
 
 O'quvchilar A1→A2, A2→B1, B1→B2 testlarini onlayn topshiradi. Admin savollarni qo'shadi va natijalarni ko'radi.
 
@@ -135,4 +135,4 @@ dev.js               — lokal server
 vercel.json          — Vercel sozlamalari
 ```
 
-Ranglarni o'zgartirish uchun `public/style.css` boshidagi `--brand` va `--accent` qiymatlarini almashtiring.
+Ranglarni o'zgartirish uchun `public/style.css` boshidagi `--brand` (asosiy rang) va unga yaqin `--brand-*` qiymatlarini almashtiring.
