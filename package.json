@@ -5,12 +5,17 @@
   "main": "lib/app.js",
   "scripts": {
     "dev": "node dev.js",
-    "start": "node dev.js"
+    "start": "node dev.js",
+    "build:vendor": "esbuild tools/blob-entry.js --bundle --format=esm --platform=browser --minify --outfile=public/vendor/blob-upload.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@vercel/blob": "^2.8.0",
     "express": "^5.2.1",
     "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
   }
 }

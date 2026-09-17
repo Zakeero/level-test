@@ -132,3 +132,65 @@ footer.foot { text-align: center; color: var(--muted); font-size: 13px; padding:
   .bar .card { gap: 10px; padding: 10px 12px; }
   .timer { font-size: 18px; padding: 3px 8px; }
 }
+
+/* ===== v2: tanlash tugmalari, qoidalar, nazorat, Reading/Listening ===== */
+h3 { font-size: 18px; margin: 6px 0 10px; }
+button.test-opt { width: 100%; text-align: left; font: inherit; font-weight: 400; color: var(--text); background: #fff; justify-content: flex-start; }
+button.test-opt:hover { background: #fff; }
+button.test-opt.sel, button.test-opt.sel:hover { background: var(--brand-50); }
+button.test-opt:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+select:disabled { background: var(--soft); color: var(--muted); }
+
+.rules { margin-top: 18px; background: var(--brand-50); border: 1px solid var(--brand-100); border-radius: 12px; padding: 14px 16px; }
+.rules ul { margin: 8px 0 4px; padding-left: 20px; }
+.rules li { margin: 3px 0; font-size: 14px; }
+.rules .check { margin-top: 10px; font-weight: 600; }
+.rules .check input { width: 18px; height: 18px; accent-color: var(--brand); }
+
+.flag { font-weight: 700; color: var(--bad); background: var(--bad-bg); border-radius: 8px; padding: 4px 8px; white-space: nowrap; }
+.no-select { -webkit-user-select: none; user-select: none; }
+.notice { background: var(--bad-bg); color: var(--bad); border-radius: 10px; padding: 10px 12px; font-weight: 600; }
+
+.overlay { position: fixed; inset: 0; z-index: 100; background: rgba(40,20,10,.55); display: grid; place-items: center; padding: 16px; }
+.overlay-card { max-width: 440px; width: 100%; text-align: center; margin: 0; }
+.overlay-icon { font-size: 40px; line-height: 1; margin-bottom: 8px; }
+.overlay-card p { color: var(--muted); }
+
+/* test savollari */
+#questions > .card .q + .q { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+.passage { padding: 0; overflow: hidden; }
+.passage-src { padding: 20px 22px; background: var(--brand-50); border-bottom: 1px solid var(--brand-100); }
+.passage-qs { padding: 20px 22px; }
+.passage-qs .q + .q { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+.passage-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.kind-badge { font-weight: 800; font-size: 13px; letter-spacing: .3px; color: #fff; background: var(--brand); border-radius: 99px; padding: 3px 12px; }
+.passage-body { white-space: pre-line; font-size: 16px; line-height: 1.7; margin-top: 8px; }
+.player { margin: 10px 0 4px; }
+.player audio { width: 100%; }
+.player audio:not([controls]) { display: none; }
+.player .row { flex-wrap: nowrap; }
+.player .progress > div { background: var(--brand); transition: width .25s linear; }
+.play-btn { white-space: nowrap; }
+.play-btn:disabled { opacity: .7; }
+.play-left { white-space: nowrap; font-size: 14px; }
+
+/* katta ekranda uzun matn chapda qotib turadi */
+@media (min-width: 960px) {
+  #step-test.wide .passage.reading { display: grid; grid-template-columns: 1fr 1fr; align-items: start; }
+  #step-test.wide .passage.reading .passage-src { position: sticky; top: 158px; max-height: calc(100vh - 176px); overflow: auto; border-bottom: 0; border-right: 1px solid var(--brand-100); }
+}
+
+/* admin: bloklar */
+.admin-passage { border: 1px solid var(--line); border-radius: 12px; margin: 14px 0; overflow: hidden; }
+.admin-passage > header { background: var(--brand-50); padding: 12px 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid var(--brand-100); }
+.admin-passage .excerpt { color: var(--muted); font-size: 13px; padding: 8px 14px 0; white-space: pre-line; max-height: 4.8em; overflow: hidden; }
+.admin-passage audio { height: 34px; }
+.pill { display: inline-block; font-size: 12px; font-weight: 700; border-radius: 99px; padding: 2px 10px; background: var(--soft); color: var(--muted); }
+.pill.warn { background: var(--bad-bg); color: var(--bad); }
+.upload-status { font-size: 13px; margin-top: 6px; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+@media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+.inline-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+.inline-form > * { flex: 1; min-width: 140px; }
+.inline-form > button { flex: 0 0 auto; }
+.ev-list { font-size: 13px; margin: 6px 0 0; padding-left: 18px; }

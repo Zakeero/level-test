@@ -83,11 +83,20 @@ Keyin brauzerda `http://localhost:3000` va `http://localhost:3000/admin` manzill
 - Sahifa yangilansa ham javoblar yo'qolmaydi.
 - Natijada foiz, o'tdi/o'tmadi, bo'limlar bo'yicha ball va xatolar tahlili ko'rsatiladi.
 
+- Ustoz va guruhni ro'yxatdan tanlaydi (guruhlar tanlangan ustozga qarab chiqadi).
+- Reading matnlari va Listening audiolari bilan ishlaydi. Audioni necha marta tinglash mumkinligini cheklash mumkin.
+- Nazorat: test to'liq ekranda o'tadi. Boshqa oyna/tabga o'tish, to'liq ekrandan chiqish qayd etiladi, ogohlantirish chiqadi va belgilangan limitdan keyin test avtomatik yakunlanadi. Nusxalash va o'ng tugma o'chirilgan.
+
 **Admin uchun**
 - Testlarni yaratish va tahrirlash: vaqt, o'tish bali, testni yopib qo'yish.
 - Savollarni bittalab yoki matndan ommaviy qo'shish.
 - Natijalar: qidiruv, test, holat va sana bo'yicha filtr, statistika, har bir o'quvchining javoblari.
 - Natijalarni Excel uchun CSV faylga yuklab olish.
+- Ustoz va guruhlar ro'yxati (bir nechtasini birdan qo'shish mumkin), natijalarni ustoz/guruh bo'yicha filtrlash.
+- Reading/Listening bloklari: matn yoki audio + unga tegishli savollar. Audio faylni to'g'ridan-to'g'ri yuklash (Vercel Blob) yoki havola orqali qo'shish.
+- Har bir test uchun oynadan chiqish limiti; natijalarda chiqishlar soni va vaqtlari ko'rinadi.
+
+> ⚠️ Brauzer boshqa oynaga o'tishni texnik jihatdan butunlay taqiqlay olmaydi — platforma buni aniqlaydi, qayd etadi va cheklaydi. Ikkinchi qurilmadan foydalanishni faqat nazoratchi kuzata oladi.
 
 To'g'ri javoblar brauzerga yuborilmaydi, baholash faqat serverda bo'ladi.
 
@@ -97,6 +106,7 @@ To'g'ri javoblar brauzerga yuborilmaydi, baholash faqat serverda bo'ladi.
 |---|---|
 | `DATABASE_URL` | Neon bazasi manzili (Vercel o'zi qo'shadi) |
 | `ADMIN_PASSWORD` | Admin panel paroli. Qo'yilmasa `admin123` bo'ladi, **albatta o'rnating** |
+| `BLOB_READ_WRITE_TOKEN` | Audio yuklash uchun. Vercel → Storage → **Blob** do'konini ulaganda o'zi qo'shiladi |
 | `SECRET` | Admin sessiyasi kaliti. Qo'yilmasa paroldan hosil qilinadi |
 
 Parolni o'zgartirsangiz, Redeploy qiling. Shundan keyin eski admin sessiyalari ham bekor bo'ladi.
