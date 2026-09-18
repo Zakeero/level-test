@@ -64,7 +64,7 @@
   <div class="card">
     <div class="row"><h2 style="margin:0">Testlar</h2><span class="spacer"></span><button id="new-test">+ Yangi test</button></div>
     <div class="table-wrap"><table>
-      <thead><tr><th>Daraja</th><th>Nomi</th><th>Savollar</th><th>Vaqt</th><th>O'tish</th><th>Chiqish limiti</th><th>Topshirganlar</th><th>Holat</th><th></th></tr></thead>
+      <thead><tr><th>Daraja</th><th>Nomi</th><th>Savollar (tushadi / bank)</th><th>Vaqt</th><th>O'tish</th><th>Chiqish limiti</th><th>Topshirganlar</th><th>Holat</th><th></th></tr></thead>
       <tbody id="tests-body"></tbody>
     </table></div>
   </div>
@@ -84,9 +84,31 @@
       <button class="btn-light" id="bulk-btn">📋 Ommaviy qo'shish</button>
     </div>
   </div>
+  <!-- Savollar banki: nechta savol tushadi -->
+  <div class="card">
+    <h2>Savollar banki — o'quvchiga nechta savol tushsin</h2>
+    <p class="muted" style="margin-top:-6px">Bankda savol ko'p bo'lsa, har bir o'quvchiga shu sondagi savol <b>tasodifiy</b> tanlanadi. <b>0</b> yozsangiz — bo'limdagi hamma savol tushadi.</p>
+    <form id="plan-form">
+      <div class="table-wrap"><table>
+        <thead><tr><th>Bo'lim</th><th>Bankda</th><th>Testga tushadi</th><th></th></tr></thead>
+        <tbody id="plan-body"></tbody>
+      </table></div>
+      <div id="plan-error" class="error hidden"></div>
+      <div class="row" style="margin-top:14px">
+        <b id="plan-total"></b><span class="spacer"></span>
+        <button type="submit">Saqlash</button>
+      </div>
+    </form>
+  </div>
+
   <div class="card">
     <h2>Alohida savollar <span class="muted" id="c-standalone-n"></span></h2>
     <p class="muted" style="margin-top:-6px">Grammar, Vocabulary va boshqa matnga bog'lanmagan savollar. Testda birinchi bo'lib chiqadi.</p>
+    <div class="row" style="margin-bottom:10px">
+      <input id="c-search" placeholder="Savol yoki variant bo'yicha qidirish..." style="flex:2;min-width:180px">
+      <select id="c-section" style="flex:1;min-width:150px"></select>
+      <span class="muted" id="c-shown"></span>
+    </div>
     <div class="table-wrap"><table>
       <thead><tr><th>#</th><th>Bo'lim</th><th>Savol</th><th>To'g'ri javob</th><th>Ball</th><th></th></tr></thead>
       <tbody id="c-standalone"></tbody>
@@ -400,7 +422,8 @@ async function loadTests() {
     <tr>
       <td><span class="lvl">${esc(t.level_from)} → ${esc(t.level_to)}</span></td>
       <td><b>${esc(t.title)}</b>${t.passage_count ? `<br><small class="muted">${t.passage_count} ta Reading/Listening bloki</small>` : ''}</td>
-      <td>${t.question_count}</td><td>${t.duration_min} daq</td><td>${t.pass_percent}%</td>
+      <td>${t.sampled ? `<b>${t.planned_count}</b> <span class="muted">/ ${t.question_count}</span><br><small class="muted">bankdan tanlanadi</small>` : t.question_count}</td>
+      <td>${t.duration_min} daq</td><td>${t.pass_percent}%</td>
       <td>${t.max_violations ? `${t.max_violations} marta` : 'faqat qayd'}</td>
       <td>${t.attempt_count}</td>
       <td><span class="badge ${t.active ? 'ok' : 'bad'}">${t.active ? 'Faol' : 'Yopiq'}</span></td>
@@ -455,15 +478,98 @@ const qRow = (q, i) => `
   </tr>`;
 const passageName = (p) => `${p.kind === 'listening' ? '🎧 Listening' : '📖 Reading'}${p.title ? ': ' + p.title : ''}`;
 
+const LIST_LIMIT = 100;
+function renderStandalone() {
+  const all = content.questions.filter((q) => !q.passage_id);
+  const term = $('#c-search').value.trim().toLowerCase();
+  const sec = $('#c-section').value;
+  const list = all.filter((q) => (!sec || q.section === sec) &&
+    (!term || q.text.toLowerCase().includes(term) || q.options.some((o) => o.toLowerCase().includes(term))));
+  $('#c-standalone-n').textContent = `(${all.length})`;
+  $('#c-shown').textContent = list.length > LIST_LIMIT
+    ? `${list.length} tadan birinchi ${LIST_LIMIT} tasi ko'rsatilmoqda` : `${list.length} ta savol`;
+  $('#c-standalone').innerHTML = list.slice(0, LIST_LIMIT).map(qRow).join('') ||
+    `<tr><td colspan="6" class="muted">${all.length ? 'Shartga mos savol topilmadi.' : 'Alohida savollar yo\'q.'}</td></tr>`;
+  bindQButtons();
+}
+function bindQButtons() {
+  document.querySelectorAll('[data-qe]').forEach((b) => b.onclick = () => openQForm(content.questions.find((q) => q.id === +b.dataset.qe)));
+  document.querySelectorAll('[data-qd]').forEach((b) => b.onclick = async () => {
+    if (!confirm('Savol o\'chirilsinmi?')) return;
+    await api('/questions/' + b.dataset.qd, 'DELETE'); openContent(currentTest.id);
+  });
+}
+$('#c-search').oninput = renderStandalone;
+$('#c-section').onchange = renderStandalone;
+
+function renderPlan() {
+  const p = content.plan, t = content.test;
+  const row = (key, label, available, value, note) => `
+    <tr>
+      <td><b>${esc(label)}</b>${note ? `<br><small class="muted">${esc(note)}</small>` : ''}</td>
+      <td>${available}</td>
+      <td><input type="number" min="0" max="${available}" value="${value}" data-plan="${esc(key)}" style="max-width:110px"></td>
+      <td class="muted plan-hint"></td>
+    </tr>`;
+  const rows = p.sections.map((s) => row('s:' + s.section, s.section, s.available, s.quota || 0));
+  for (const kind of ['reading', 'listening']) {
+    const b = p.blocks[kind];
+    if (b.available) rows.push(row(kind, kind === 'reading' ? '📖 Reading bloklari' : '🎧 Listening bloklari',
+      b.available, t[`${kind}_blocks`] || 0, 'nechta matn/audio bloki tushsin'));
+  }
+  $('#plan-body').innerHTML = rows.join('') || '<tr><td colspan="4" class="muted">Avval savol qo\'shing</td></tr>';
+  document.querySelectorAll('[data-plan]').forEach((i) => i.oninput = updatePlanHints);
+  updatePlanHints();
+}
+function updatePlanHints() {
+  let total = 0, blocksNote = [];
+  document.querySelectorAll('#plan-body tr').forEach((tr) => {
+    const inp = tr.querySelector('[data-plan]');
+    if (!inp) return;
+    const key = inp.dataset.plan, avail = +inp.max, val = Math.max(0, +inp.value || 0);
+    const take = val > 0 ? Math.min(val, avail) : avail;
+    const hint = tr.querySelector('.plan-hint');
+    hint.textContent = val > avail ? `bankda ${avail} ta bor — hammasi tushadi`
+      : (val === 0 || val === avail ? 'hammasi tushadi' : 'tasodifiy tanlanadi');
+    hint.style.color = val > avail ? 'var(--bad)' : '';
+    if (key.startsWith('s:')) total += take;
+    else {
+      const b = content.plan.blocks[key];
+      const avgQ = b.available ? Math.round((b.questions || 0) / Math.max(1, b.take) * take) : 0;
+      if (take) blocksNote.push(`${take} ta ${key === 'reading' ? 'Reading' : 'Listening'} bloki (~${avgQ} savol)`);
+      total += avgQ;
+    }
+  });
+  $('#plan-total').textContent = `Har bir o'quvchiga: ~${total} ta savol` + (blocksNote.length ? ` · ${blocksNote.join(' + ')}` : '');
+}
+$('#plan-form').onsubmit = async (e) => {
+  e.preventDefault();
+  const body = { sections: {}, reading_blocks: 0, listening_blocks: 0 };
+  document.querySelectorAll('[data-plan]').forEach((i) => {
+    const v = Math.max(0, +i.value || 0);
+    if (i.dataset.plan.startsWith('s:')) body.sections[i.dataset.plan.slice(2)] = v;
+    else body[i.dataset.plan + '_blocks'] = v;
+  });
+  try {
+    await api(`/tests/${currentTest.id}/plan`, 'PUT', body);
+    showErr($('#plan-error'), '');
+    await openContent(currentTest.id);
+    loadTests();
+  } catch (ex) { showErr($('#plan-error'), ex.message); }
+};
+
 async function openContent(id) {
   currentTest = tests.find((t) => t.id === id) || currentTest;
   show('content');
   $('#c-title').textContent = `${currentTest.level_from} → ${currentTest.level_to} · ${currentTest.title}`;
   content = await api(`/tests/${currentTest.id}/content`);
   const standalone = content.questions.filter((q) => !q.passage_id);
-  $('#c-standalone-n').textContent = `(${standalone.length})`;
-  $('#c-standalone').innerHTML = standalone.map(qRow).join('') ||
-    '<tr><td colspan="6" class="muted">Alohida savollar yo\'q.</td></tr>';
+  const sections = [...new Set(standalone.map((q) => q.section))];
+  const cs = $('#c-section').value;
+  $('#c-section').innerHTML = '<option value="">Barcha bo\'limlar</option>' + sections.map((s) => opt(s, s)).join('');
+  $('#c-section').value = sections.includes(cs) ? cs : '';
+  renderPlan();
+  renderStandalone();
   $('#c-passages').innerHTML = content.passages.map((p) => {
     const qs = content.questions.filter((q) => q.passage_id === p.id);
     return `

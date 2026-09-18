@@ -37,6 +37,7 @@
           <li>Test to'liq ekran rejimida o'tadi.</li>
           <li>Boshqa oyna, tab yoki ilovaga o'tish <b>qayd etiladi</b> va ustozingizga ko'rinadi.</li>
           <li id="rule-limit">Bir necha marta chiqilsa, test avtomatik yakunlanadi.</li>
+          <li id="rule-random" class="hidden">Savollar bankdan tasodifiy tanlanadi — har bir o'quvchida boshqacha bo'ladi.</li>
           <li>Matnni nusxalash va sahifani yangilash tavsiya etilmaydi.</li>
         </ul>
         <label class="check"><input type="checkbox" id="agree"> Qoidalar bilan tanishdim</label>
@@ -128,14 +129,16 @@ async function loadStart() {
     <button type="button" class="test-opt" data-id="${x.id}" aria-pressed="false">
       <span class="lvl">${esc(x.level_from)} → ${esc(x.level_to)}</span>
       <span><strong>${esc(x.title)}</strong><br>
-      <small class="muted">${x.question_count} ta savol · ${x.duration_min} daqiqa · o'tish bali ${x.pass_percent}%</small>
+      <small class="muted">${x.sampled ? '~' : ''}${x.question_count} ta savol · ${x.duration_min} daqiqa · o'tish bali ${x.pass_percent}%</small>
       ${x.description ? `<br><small class="muted">${esc(x.description)}</small>` : ''}</span>
     </button>`).join('');
   box.querySelectorAll('.test-opt').forEach((el) => el.onclick = () => {
     box.querySelectorAll('.test-opt').forEach((b) => { b.classList.remove('sel'); b.setAttribute('aria-pressed', 'false'); });
     el.classList.add('sel'); el.setAttribute('aria-pressed', 'true');
     selectedTest = +el.dataset.id;
-    const mv = tests.find((x) => x.id === selectedTest).max_violations;
+    const t = tests.find((x) => x.id === selectedTest);
+    const mv = t.max_violations;
+    $('#rule-random').classList.toggle('hidden', !t.sampled);
     $('#rule-limit').textContent = mv > 0
       ? `${mv} marta chiqilsa, test avtomatik yakunlanadi.`
       : 'Chiqishlar soni natijangiz bilan birga saqlanadi.';

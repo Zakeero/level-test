@@ -95,6 +95,8 @@ Keyin brauzerda `http://localhost:3000` va `http://localhost:3000/admin` manzill
 - Ustoz va guruhlar ro'yxati (bir nechtasini birdan qo'shish mumkin), natijalarni ustoz/guruh bo'yicha filtrlash.
 - Reading/Listening bloklari: matn yoki audio + unga tegishli savollar. Audio faylni to'g'ridan-to'g'ri yuklash (Vercel Blob) yoki havola orqali qo'shish.
 - Har bir test uchun oynadan chiqish limiti; natijalarda chiqishlar soni va vaqtlari ko'rinadi.
+- **Savollar banki:** bankka xohlagancha savol qo'shib (masalan 500 ta), har bo'limdan nechtasi testga tushishini belgilash mumkin (masalan Grammar 15, Vocabulary 10). Savollar har bir o'quvchiga tasodifiy tanlanadi, shuning uchun variantlar bir xil bo'lmaydi. Reading/Listening uchun nechta blok tushishi belgilanadi. Kvota `0` bo'lsa — bo'limdagi hamma savol tushadi.
+- Savollar ro'yxatida bo'lim bo'yicha filtr va matn bo'yicha qidiruv (katta banklar uchun).
 
 > ⚠️ Brauzer boshqa oynaga o'tishni texnik jihatdan butunlay taqiqlay olmaydi — platforma buni aniqlaydi, qayd etadi va cheklaydi. Ikkinchi qurilmadan foydalanishni faqat nazoratchi kuzata oladi.
 
