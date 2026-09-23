@@ -8,8 +8,18 @@
       "destination": "/api"
     },
     {
+      "source": "/speaking",
+      "destination": "/speaking/index.html"
+    },
+    {
       "source": "/admin",
       "destination": "/admin/index.html"
     }
-  ]
+  ],
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 60,
+      "memory": 1024
+    }
+  }
 }

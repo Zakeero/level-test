@@ -16,6 +16,7 @@
     <button data-tab="results" class="active">Natijalar</button>
     <button data-tab="tests">Testlar</button>
     <button data-tab="people">Ustoz va guruhlar</button>
+    <button data-tab="speaking">🎙 Speaking</button>
     <button id="logout">Chiqish</button>
   </nav>
 </header>
@@ -158,6 +159,71 @@
   </div>
   <div class="card muted">💡 Ro'yxatda kamida bitta faol ustoz yoki guruh bo'lsa, o'quvchilar ularni faqat ro'yxatdan tanlaydi. O'chirilgan (nofaol) ustoz yoki guruh ro'yxatda ko'rinmaydi, lekin eski natijalarda saqlanib qoladi.</div>
 </main>
+
+<!-- AI Speaking -->
+<main class="wrap wide hidden" id="speaking-view">
+  <div class="card" id="sp-config"></div>
+  <div class="card">
+    <div class="row">
+      <h2 style="margin:0">Speaking natijalari</h2><span class="spacer"></span>
+      <button class="btn-light btn-sm" id="sp-bank-btn">📚 Savollar banki</button>
+    </div>
+    <div class="row" style="margin:12px 0">
+      <input id="sp-search" placeholder="Ism, telefon..." style="flex:2;min-width:170px">
+      <select id="sp-teacher" style="flex:1;min-width:150px"><option value="">Barcha ustozlar</option></select>
+      <select id="sp-status" style="flex:1;min-width:150px">
+        <option value="">Hammasi</option><option value="done">Yakunlangan</option><option value="open">Tugallanmagan</option>
+      </select>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Sana</th><th>O'quvchi</th><th>Ustoz / Guruh</th><th>Javoblar</th><th>AI band</th><th>Ustoz bali</th></tr></thead>
+      <tbody id="sp-body"></tbody>
+    </table></div>
+  </div>
+</main>
+
+<!-- Speaking savollar banki -->
+<main class="wrap wide hidden" id="spbank-view">
+  <div class="card">
+    <div class="row">
+      <button class="btn-light btn-sm" id="sp-back">← Natijalar</button>
+      <h2 style="margin:0">Speaking savollar banki</h2><span class="spacer"></span>
+      <button id="sp-new-topic">+ Yangi mavzu</button>
+    </div>
+    <p class="muted" style="margin-top:10px">Har bir imtihonda Part 1 uchun bitta mavzu, Part 2 va Part 3 uchun boshqa mavzu tasodifiy tanlanadi. Mavzuda kamida 4 ta Part 1 savoli, 1 ta kartochka va 3 ta Part 3 savoli bo'lgani ma'qul.</p>
+  </div>
+  <div id="sp-topics"></div>
+</main>
+
+<!-- Speaking sessiya tafsiloti -->
+<dialog id="sp-dlg"><div class="card" id="sp-detail"></div></dialog>
+
+<!-- Speaking mavzu formasi -->
+<dialog id="sp-topic-dlg"><form class="card" id="sp-topic-form" method="dialog">
+  <h2>Mavzu</h2>
+  <label>Nomi *</label><input name="title" required placeholder="Masalan: Sport and health">
+  <label class="check"><input type="checkbox" name="active" checked> Faol (imtihonlarda ishlatiladi)</label>
+  <div id="sp-topic-error" class="error hidden"></div>
+  <div class="row" style="margin-top:16px"><span class="spacer"></span>
+    <button type="button" class="btn-light" data-close>Bekor qilish</button><button type="submit">Saqlash</button></div>
+</form></dialog>
+
+<!-- Speaking savol formasi -->
+<dialog id="sp-item-dlg"><form class="card" id="sp-item-form" method="dialog">
+  <h2>Savol</h2>
+  <label>Qaysi qism</label>
+  <select name="part">
+    <option value="1">Part 1 — qisqa savol (30 soniya)</option>
+    <option value="2">Part 2 — kartochka (1 daq tayyorgarlik + 2 daq)</option>
+    <option value="3">Part 3 — muhokama savoli (45 soniya)</option>
+  </select>
+  <label>Savol / kartochka matni *</label><textarea name="text" required style="min-height:70px" placeholder="Describe a person who has influenced you."></textarea>
+  <div id="sp-bullets-box"><label>Kartochka bandlari (har biri alohida qatorda)</label>
+    <textarea name="bullets" style="min-height:90px" placeholder="who the person is&#10;how you know them&#10;what they are like&#10;and explain how they have influenced you"></textarea></div>
+  <div id="sp-item-error" class="error hidden"></div>
+  <div class="row" style="margin-top:16px"><span class="spacer"></span>
+    <button type="button" class="btn-light" data-close>Bekor qilish</button><button type="submit">Saqlash</button></div>
+</form></dialog>
 
 <!-- Test formasi -->
 <dialog id="test-dlg"><form class="card" id="test-form" method="dialog">
@@ -315,7 +381,7 @@ function logout() {
 }
 $('#logout').onclick = logout;
 
-const TAB_OF = { results: 'results', tests: 'tests', content: 'tests', people: 'people' };
+const TAB_OF = { results: 'results', tests: 'tests', content: 'tests', people: 'people', speaking: 'speaking', spbank: 'speaking' };
 function show(view) {
   document.querySelectorAll('main').forEach((m) => m.classList.add('hidden'));
   $(`#${view}-view`).classList.remove('hidden');
@@ -325,7 +391,8 @@ function show(view) {
 document.querySelectorAll('#tabs [data-tab]').forEach((b) => b.onclick = () => {
   const t = b.dataset.tab;
   show(t);
-  if (t === 'results') loadResults(); else if (t === 'tests') loadTests(); else loadPeople();
+  if (t === 'results') loadResults(); else if (t === 'tests') loadTests();
+  else if (t === 'speaking') loadSpeaking(); else loadPeople();
 });
 document.querySelectorAll('[data-close]').forEach((b) => b.onclick = () => b.closest('dialog').close());
 
@@ -795,6 +862,173 @@ $('#e-delete').onclick = async () => {
   if (!confirm(msg)) return;
   await api(`/${type === 'teacher' ? 'teachers' : 'groups'}/${item.id}`, 'DELETE');
   $('#e-dlg').close(); loadPeople();
+};
+
+// ---------- AI Speaking ----------
+let spTopics = [], spEditTopic = null, spEditItem = null, spItemTopic = null;
+const spApi = (u, m, b) => api('/speaking' + u, m, b);
+
+async function loadSpeaking() {
+  const [cfg, rows] = await Promise.all([spApi('/config'), spApi('/sessions?' + spFilters())]);
+  const warn = [];
+  if (!cfg.key) warn.push('❌ GEMINI_API_KEY sozlanmagan — imtihon ishlamaydi');
+  if (!cfg.blob) warn.push('⚠️ Fayl ombori ulanmagan — ovoz yozuvlari saqlanmaydi');
+  if (cfg.p1 < 4 || cfg.p2 < 1) warn.push('⚠️ Savollar banki to\'ldirilmagan');
+  $('#sp-config').innerHTML = `
+    <div class="row"><h2 style="margin:0">🎙 AI Speaking</h2><span class="spacer"></span>
+      <span class="pill">${esc(cfg.model)}</span>
+      <a class="btn btn-light btn-sm" href="/speaking" target="_blank">O'quvchi sahifasi ↗</a></div>
+    <div class="stats" style="margin-top:14px">
+      <div class="stat"><span class="muted">Mavzular</span><b>${cfg.topics}</b></div>
+      <div class="stat"><span class="muted">Part 1 / 2 / 3 savollari</span><b>${cfg.p1} / ${cfg.p2} / ${cfg.p3}</b></div>
+      <div class="stat"><span class="muted">Yakunlangan imtihonlar</span><b>${cfg.done}</b></div>
+      <div class="stat"><span class="muted">O'rtacha band</span><b>${cfg.avg_band}</b></div>
+    </div>
+    ${warn.length ? `<div class="notice" style="margin-top:12px">${warn.join('<br>')}</div>` : ''}
+    ${cfg.topics === 0 ? '<p><button id="sp-seed">📚 Namuna savollar bankini yuklash (8 mavzu)</button></p>' : ''}`;
+  if ($('#sp-seed')) $('#sp-seed').onclick = async () => {
+    await spApi('/seed', 'POST', {}); loadSpeaking();
+  };
+  const tsel = $('#sp-teacher'), cur = tsel.value;
+  tsel.innerHTML = '<option value="">Barcha ustozlar</option>' + teachers.map((t) => opt(t.id, t.name)).join('');
+  tsel.value = cur;
+  $('#sp-body').innerHTML = rows.length ? rows.map((r) => `
+    <tr class="click" data-sp="${r.id}">
+      <td>${fmt(r.started_at)}</td>
+      <td><b>${esc(r.student_name)}</b><br><small class="muted">${esc(r.phone)}</small></td>
+      <td>${esc(r.teacher) || '—'}<br><small class="muted">${esc(r.group_name)}</small></td>
+      <td>${r.answers}</td>
+      <td>${r.overall_band ? `<b style="font-size:16px">${r.overall_band}</b>${r.cefr ? `<br><small class="muted">${esc(r.cefr)}</small>` : ''}` : '<span class="pill">tugallanmagan</span>'}</td>
+      <td>${r.teacher_band ? `<b>${r.teacher_band}</b>` : '<span class="muted">—</span>'}</td>
+    </tr>`).join('') : '<tr><td colspan="6" class="muted">Hali imtihon topshirilmagan</td></tr>';
+  document.querySelectorAll('[data-sp]').forEach((tr) => tr.onclick = () => openSpSession(tr.dataset.sp));
+}
+const spFilters = () => {
+  const p = new URLSearchParams();
+  [['search', '#sp-search'], ['teacher_id', '#sp-teacher'], ['status', '#sp-status']].forEach(([k, s]) => $(s)?.value && p.set(k, $(s).value));
+  return p.toString();
+};
+let spT;
+['#sp-search', '#sp-teacher', '#sp-status'].forEach((s) => $(s).addEventListener('input', () => { clearTimeout(spT); spT = setTimeout(loadSpeaking, 300); }));
+
+const SP_CRIT = { fluency: 'Fluency', lexical: 'Lexical', grammar: 'Grammar', pronunciation: 'Pronunciation' };
+async function openSpSession(id) {
+  const s = await spApi('/sessions/' + id);
+  const r = s.result;
+  $('#sp-detail').innerHTML = `
+    <div class="row"><h2 style="margin:0">${esc(s.student_name)}</h2><span class="spacer"></span>
+      <button class="btn-light btn-sm" onclick="this.closest('dialog').close()">✕</button></div>
+    <p class="muted">${esc(s.phone)} · ${esc(s.teacher) || '—'} · ${esc(s.group_name) || '—'}<br>${fmt(s.started_at)}</p>
+    ${r ? `<p><b style="font-size:26px">${r.overall_band}</b> band${r.cefr ? ` · ${esc(r.cefr)}` : ''}</p>
+      ${Object.entries(SP_CRIT).map(([k, l]) => `<div class="sec-row"><span class="name">${l}</span>
+        <div class="progress"><div style="width:${((r[k]?.band || 0) / 9) * 100}%"></div></div><span>${r[k]?.band ?? '—'}</span></div>`).join('')}
+      <p class="mini">${esc(r.summary || '')}</p>`
+    : '<div class="notice">Imtihon yakunlanmagan — umumiy baho yo\'q</div>'}
+    <h2 style="margin-top:16px">Javoblar</h2>
+    ${s.answers.map((a) => {
+      const an = a.analysis || {};
+      return `<details class="ans"><summary>Part ${a.part} · ${esc(a.question.slice(0, 70))}${a.question.length > 70 ? '…' : ''}
+        ${an.bands ? `<span class="pill">${Object.values(an.bands).filter(Number).length ? (Object.values(an.bands).reduce((x, y) => x + (+y || 0), 0) / 4).toFixed(1) : '—'}</span>` : ''}</summary>
+        ${a.audio_url ? `<audio controls preload="none" src="${esc(a.audio_url)}"></audio>` : '<p class="mini">Yozuv saqlanmagan</p>'}
+        <p>${esc(a.transcript) || '<span class="mini">transkripsiya yo\'q</span>'}</p>
+        ${an.bands ? `<p class="mini">${Object.entries(an.bands).map(([k, v]) => `${SP_CRIT[k] || k}: <b>${v}</b>`).join(' · ')}</p>` : ''}
+        ${(an.errors || []).map((e) => `<div class="fix"><span class="said">✗ ${esc(e.said)}</span> → <span class="ok">✓ ${esc(e.better)}</span></div>`).join('')}
+      </details>`;
+    }).join('') || '<p class="muted">Javob yo\'q</p>'}
+    <form id="sp-teacher-form" style="margin-top:16px">
+      <h2>Ustoz bahosi</h2>
+      <div class="grid2">
+        <div><label>Band (0–9)</label><input name="teacher_band" type="number" step="0.5" min="0" max="9" value="${s.teacher_band ?? ''}"></div>
+        <div><label>Izoh</label><input name="teacher_note" value="${esc(s.teacher_note || '')}"></div>
+      </div>
+      <div class="row" style="margin-top:12px"><button type="submit">Saqlash</button><span class="spacer"></span>
+        <button type="button" class="btn-danger btn-sm" id="sp-del">O'chirish</button></div>
+    </form>`;
+  $('#sp-teacher-form').onsubmit = async (e) => {
+    e.preventDefault();
+    await spApi(`/sessions/${id}/teacher`, 'PUT', { teacher_band: e.target.teacher_band.value, teacher_note: e.target.teacher_note.value });
+    $('#sp-dlg').close(); loadSpeaking();
+  };
+  $('#sp-del').onclick = async () => {
+    if (!confirm('Bu imtihon va uning yozuvlari o\'chirilsinmi?')) return;
+    await spApi('/sessions/' + id, 'DELETE'); $('#sp-dlg').close(); loadSpeaking();
+  };
+  $('#sp-dlg').showModal();
+}
+
+// --- savollar banki ---
+$('#sp-bank-btn').onclick = () => { show('spbank'); loadSpBank(); };
+$('#sp-back').onclick = () => { show('speaking'); loadSpeaking(); };
+const PART_NAME = { 1: 'Part 1', 2: 'Part 2 (kartochka)', 3: 'Part 3' };
+async function loadSpBank() {
+  spTopics = await spApi('/topics');
+  $('#sp-topics').innerHTML = spTopics.map((t) => {
+    const counts = [1, 2, 3].map((p) => t.items.filter((i) => i.part === p).length);
+    return `<div class="admin-passage">
+      <header>
+        <b>${esc(t.title)}</b>
+        <span class="pill">P1: ${counts[0]}</span><span class="pill">P2: ${counts[1]}</span><span class="pill">P3: ${counts[2]}</span>
+        ${t.active ? '' : '<span class="pill warn">nofaol</span>'}
+        <span class="spacer"></span>
+        <button class="btn-sm" data-sp-add="${t.id}">+ Savol</button>
+        <button class="btn-light btn-sm" data-sp-edit="${t.id}">Tahrirlash</button>
+        <button class="btn-danger btn-sm" data-sp-del="${t.id}">O'chirish</button>
+      </header>
+      <div class="table-wrap" style="padding:0 6px 6px"><table><tbody>
+        ${t.items.map((i) => `<tr>
+          <td style="width:130px"><span class="tag">${PART_NAME[i.part]}</span></td>
+          <td>${esc(i.text)}${i.bullets ? `<br><small class="muted">${esc(i.bullets).replace(/\n/g, ' · ')}</small>` : ''}</td>
+          <td class="row" style="width:150px"><button class="btn-light btn-sm" data-spi-edit="${i.id}">Tahrirlash</button>
+            <button class="btn-danger btn-sm" data-spi-del="${i.id}">✕</button></td></tr>`).join('')
+          || '<tr><td class="muted">Savol yo\'q</td></tr>'}
+      </tbody></table></div></div>`;
+  }).join('') || '<div class="card muted">Mavzular yo\'q. "+ Yangi mavzu" tugmasini bosing.</div>';
+  document.querySelectorAll('[data-sp-add]').forEach((b) => b.onclick = () => openSpItem(null, +b.dataset.spAdd));
+  document.querySelectorAll('[data-sp-edit]').forEach((b) => b.onclick = () => openSpTopic(spTopics.find((t) => t.id === +b.dataset.spEdit)));
+  document.querySelectorAll('[data-sp-del]').forEach((b) => b.onclick = async () => {
+    const t = spTopics.find((x) => x.id === +b.dataset.spDel);
+    if (!confirm(`"${t.title}" mavzusi va uning ${t.items.length} ta savoli o'chiriladi. Davom etasizmi?`)) return;
+    await spApi('/topics/' + t.id, 'DELETE'); loadSpBank();
+  });
+  document.querySelectorAll('[data-spi-edit]').forEach((b) => b.onclick = () => {
+    const id = +b.dataset.spiEdit;
+    const t = spTopics.find((x) => x.items.some((i) => i.id === id));
+    openSpItem(t.items.find((i) => i.id === id), t.id);
+  });
+  document.querySelectorAll('[data-spi-del]').forEach((b) => b.onclick = async () => {
+    if (!confirm('Savol o\'chirilsinmi?')) return;
+    await spApi('/items/' + b.dataset.spiDel, 'DELETE'); loadSpBank();
+  });
+}
+$('#sp-new-topic').onclick = () => openSpTopic(null);
+function openSpTopic(t) {
+  spEditTopic = t; const f = $('#sp-topic-form'); f.reset(); showErr($('#sp-topic-error'), '');
+  f.title.value = t?.title || ''; f.active.checked = t ? !!t.active : true;
+  $('#sp-topic-dlg').showModal();
+}
+$('#sp-topic-form').onsubmit = async (e) => {
+  e.preventDefault(); const f = e.target;
+  const body = { title: f.title.value, active: f.active.checked };
+  try {
+    spEditTopic ? await spApi('/topics/' + spEditTopic.id, 'PUT', body) : await spApi('/topics', 'POST', body);
+    $('#sp-topic-dlg').close(); loadSpBank();
+  } catch (ex) { showErr($('#sp-topic-error'), ex.message); }
+};
+function openSpItem(item, topicId) {
+  spEditItem = item; spItemTopic = topicId;
+  const f = $('#sp-item-form'); f.reset(); showErr($('#sp-item-error'), '');
+  f.part.value = item?.part || 1; f.text.value = item?.text || ''; f.bullets.value = item?.bullets || '';
+  const toggle = () => $('#sp-bullets-box').classList.toggle('hidden', f.part.value !== '2');
+  f.part.onchange = toggle; toggle();
+  $('#sp-item-dlg').showModal();
+}
+$('#sp-item-form').onsubmit = async (e) => {
+  e.preventDefault(); const f = e.target;
+  const body = { part: f.part.value, text: f.text.value, bullets: f.bullets.value };
+  try {
+    spEditItem ? await spApi('/items/' + spEditItem.id, 'PUT', body) : await spApi(`/topics/${spItemTopic}/items`, 'POST', body);
+    $('#sp-item-dlg').close(); loadSpBank();
+  } catch (ex) { showErr($('#sp-item-error'), ex.message); }
 };
 
 if (token) start();

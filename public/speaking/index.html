@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Registon — AI Speaking imtihoni</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+<meta name="theme-color" content="#ef5123">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="/"><img src="/img/logo.png" alt="Registon o'quv markazi" width="148" height="38"><span class="sub">AI Speaking</span></a>
+</header>
+
+<!-- 1. Boshlash -->
+<main class="wrap" id="step-start">
+  <div class="card">
+    <h1>AI Speaking imtihoni</h1>
+    <p class="muted">IELTS Speaking formatida: Part 1 — qisqa savollar, Part 2 — kartochka bo'yicha monolog, Part 3 — muhokama. Jami ~12 daqiqa.</p>
+    <form id="start-form" novalidate>
+      <div class="grid2">
+        <div><label for="f-name">Ism va familiya *</label><input id="f-name" name="student_name" required placeholder="Aliyev Vali" autocomplete="name"></div>
+        <div><label for="f-phone">Telefon raqam *</label><input id="f-phone" name="phone" required placeholder="+998 90 123 45 67" inputmode="tel" autocomplete="tel"></div>
+      </div>
+      <div class="grid2" id="dir-fields">
+        <div><label>Ustoz</label><input name="teacher" placeholder="Ustoz ismi"></div>
+        <div><label>Guruh</label><input name="group_name" placeholder="Masalan: B1-07"></div>
+      </div>
+
+      <div class="rules">
+        <strong>🎙 Qanday o'tadi</strong>
+        <ul>
+          <li>Har bir savol ekranda chiqadi va ovozda o'qiladi.</li>
+          <li>Javob berish uchun vaqt cheklangan: Part 1 — 30 soniya, Part 2 — 1 daqiqa tayyorgarlik + 2 daqiqa, Part 3 — 45 soniya.</li>
+          <li>Javobni bir marta beriladi, qayta yozib bo'lmaydi. Tinch xonada, naushnik bilan topshiring.</li>
+          <li>Ovozingiz yozib olinadi va ustozingiz eshita oladi.</li>
+        </ul>
+        <label class="check"><input type="checkbox" id="agree"> Roziman, boshlashga tayyorman</label>
+      </div>
+
+      <div id="start-error" class="error hidden" role="alert"></div>
+      <p><button type="submit" id="start-btn">🎤 Mikrofonni tekshirib, boshlash</button></p>
+      <p class="disclaimer">Bu mashq imtihoni. Natija taxminiy IELTS bandni ko'rsatadi va rasmiy IELTS bali hisoblanmaydi.</p>
+    </form>
+  </div>
+</main>
+
+<!-- 2. Imtihon -->
+<main class="wrap hidden" id="step-exam">
+  <div class="card">
+    <div class="steps" id="steps"></div>
+    <div class="row" style="margin-top:10px">
+      <span class="part-badge" id="part-label">Part 1</span>
+      <span class="muted" id="topic-label"></span>
+      <span class="spacer"></span>
+      <button class="btn-light btn-sm" id="replay-btn" title="Savolni qayta eshitish">🔊 Qayta eshitish</button>
+    </div>
+    <div class="q-big" id="q-text"></div>
+    <div class="cue hidden" id="cue-box"></div>
+
+    <div id="phase-prep" class="hidden">
+      <p class="muted">Tayyorgarlik vaqti. Qog'ozga qayd qilib olishingiz mumkin.</p>
+      <div class="rec-time" id="prep-time">01:00</div>
+      <p><button id="skip-prep">Tayyorman, boshlayman →</button></p>
+    </div>
+
+    <div id="phase-record" class="rec-wrap hidden">
+      <div class="rec-ring">
+        <svg viewBox="0 0 116 116"><circle class="bg" cx="58" cy="58" r="52"></circle><circle class="fg" id="ring" cx="58" cy="58" r="52"></circle></svg>
+        <button class="rec-btn" id="rec-btn">🎤</button>
+      </div>
+      <div class="rec-time" id="rec-time">00:30</div>
+      <div class="level-bar"><div id="level"></div></div>
+      <p class="muted" id="rec-hint">Tayyor bo'lsangiz, tugmani bosing va gapiring.</p>
+    </div>
+
+    <div id="phase-wait" class="hidden">
+      <p><b id="wait-text">AI javobingizni tinglayapti...</b></p>
+      <div class="progress"><div id="wait-bar" style="width:30%"></div></div>
+    </div>
+
+    <div id="phase-next" class="hidden">
+      <div class="notice" style="background:var(--ok-bg);color:var(--ok)">✓ Javob qabul qilindi</div>
+      <p class="mini" id="transcript-preview"></p>
+      <p><button id="next-btn">Keyingi savol →</button></p>
+    </div>
+
+    <div id="exam-error" class="error hidden" role="alert"></div>
+    <p class="row"><button class="btn-light btn-sm hidden" id="retry-btn">Qayta yuborish</button>
+      <button class="btn-light btn-sm hidden" id="skip-btn">Bu savolni o'tkazib yuborish</button></p>
+  </div>
+</main>
+
+<!-- 3. Natija -->
+<main class="wrap hidden" id="step-result"></main>
+
+<footer class="foot">© Registon o'quv markazi</footer>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const mmss = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.ceil(s % 60)).padStart(2, '0')}`;
+let dir = { teachers: [], groups: [] }, session = null, step = 0, stream = null, rec = null, chunks = [], timer = null, lastBlob = null;
+
+async function api(url, body) {
+  const r = await fetch(url, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {});
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(d.error || 'Xatolik yuz berdi'), { status: r.status });
+  return d;
+}
+function say(text) {
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-GB'; u.rate = 0.95;
+    const v = speechSynthesis.getVoices().find((x) => /en-GB|en_GB/.test(x.lang)) || speechSynthesis.getVoices().find((x) => x.lang.startsWith('en'));
+    if (v) u.voice = v;
+    speechSynthesis.speak(u);
+  } catch (e) {}
+}
+
+// ---------- 1-qadam ----------
+(async function init() {
+  try {
+    const [st, d] = await Promise.all([api('/api/speaking/status'), api('/api/directory').catch(() => dir)]);
+    dir = d; renderDirectory();
+    if (!st.enabled) {
+      $('#start-error').textContent = 'AI Speaking hozircha tayyor emas: savollar banki yoki AI kaliti sozlanmagan.';
+      $('#start-error').classList.remove('hidden'); $('#start-btn').disabled = true;
+    }
+  } catch (e) {}
+  speechSynthesis?.getVoices();
+})();
+
+function renderDirectory() {
+  const hasT = dir.teachers.length > 0, hasG = dir.groups.length > 0;
+  if (!hasT && !hasG) return;
+  $('#dir-fields').innerHTML = `
+    ${hasT ? `<div><label for="f-teacher">Ustozingiz *</label><select id="f-teacher" name="teacher_id" required>
+      <option value="">— Ustozni tanlang —</option>
+      ${dir.teachers.map((t) => `<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select></div>`
+      : '<div><label>Ustoz</label><input name="teacher" placeholder="Ustoz ismi"></div>'}
+    ${hasG ? `<div><label for="f-group">Guruhingiz *</label><select id="f-group" name="group_id" required ${hasT ? 'disabled' : ''}>
+      <option value="">${hasT ? '— Avval ustozni tanlang —' : '— Guruhni tanlang —'}</option></select></div>`
+      : '<div><label>Guruh</label><input name="group_name" placeholder="Masalan: B1-07"></div>'}`;
+  if (hasG && !hasT) fillGroups(null);
+  if (hasT) $('#f-teacher').onchange = (e) => fillGroups(+e.target.value || null);
+}
+function fillGroups(teacherId) {
+  const sel = $('#f-group'); if (!sel) return;
+  const hasT = dir.teachers.length > 0;
+  const list = dir.groups.filter((g) => !hasT || g.teacher_id === teacherId || g.teacher_id === null);
+  if (hasT && !teacherId) { sel.innerHTML = '<option value="">— Avval ustozni tanlang —</option>'; sel.disabled = true; return; }
+  sel.disabled = false;
+  sel.innerHTML = `<option value="">${list.length ? '— Guruhni tanlang —' : 'Guruh yo\'q'}</option>` +
+    list.map((g) => `<option value="${g.id}">${esc(g.name)}</option>`).join('');
+  if (list.length === 1) sel.value = list[0].id;
+}
+
+$('#start-form').onsubmit = async (e) => {
+  e.preventDefault();
+  const err = $('#start-error'); err.classList.add('hidden');
+  const fail = (m) => { err.textContent = m; err.classList.remove('hidden'); };
+  const fd = Object.fromEntries(new FormData(e.target));
+  if (String(fd.student_name || '').trim().length < 3) return fail('Ism va familiyangizni to\'liq kiriting');
+  if (String(fd.phone || '').replace(/\D/g, '').length < 9) return fail('Telefon raqamingizni to\'g\'ri kiriting');
+  if ($('#f-teacher') && !fd.teacher_id) return fail('Ustozingizni tanlang');
+  if ($('#f-group') && !fd.group_id) return fail('Guruhingizni tanlang');
+  if (!$('#agree').checked) return fail('Boshlashga tayyorligingizni belgilang');
+
+  $('#start-btn').disabled = true;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+  } catch (ex) {
+    $('#start-btn').disabled = false;
+    return fail('Mikrofonga ruxsat berilmadi. Brauzer so\'rovida "Allow" ni tanlang va qayta urinib ko\'ring.');
+  }
+  try {
+    session = await api('/api/speaking/sessions', fd);
+    step = 0;
+    $('#step-start').classList.add('hidden');
+    $('#step-exam').classList.remove('hidden');
+    showStep();
+  } catch (ex) { fail(ex.message); }
+  $('#start-btn').disabled = false;
+};
+
+// ---------- 2-qadam: imtihon ----------
+const show = (id, on) => $(id).classList.toggle('hidden', !on);
+function showStep() {
+  const s = session.plan[step];
+  $('#steps').innerHTML = session.plan.map((p, i) =>
+    `<span class="${i < step ? 'done' : i === step ? 'now' : ''}">${i + 1}</span>`).join('');
+  $('#part-label').textContent = 'Part ' + s.part;
+  $('#topic-label').textContent = s.topic || '';
+  $('#q-text').textContent = s.text;
+  $('#cue-box').classList.toggle('hidden', !s.bullets.length);
+  if (s.bullets.length) $('#cue-box').innerHTML = `<b>You should say:</b><ul>${s.bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>`;
+  show('#exam-error', false); show('#phase-next', false); show('#phase-wait', false);
+  show('#retry-btn', false); show('#skip-btn', false);
+  say(s.text + (s.bullets.length ? '. You should say: ' + s.bullets.join(', ') : ''));
+  if (s.prep_sec) startPrep(s); else armRecorder(s);
+  window.scrollTo(0, 0);
+}
+$('#replay-btn').onclick = () => {
+  const s = session.plan[step];
+  say(s.text + (s.bullets.length ? '. You should say: ' + s.bullets.join(', ') : ''));
+};
+
+function startPrep(s) {
+  show('#phase-prep', true); show('#phase-record', false);
+  let left = s.prep_sec;
+  $('#prep-time').textContent = mmss(left);
+  clearInterval(timer);
+  timer = setInterval(() => {
+    left--; $('#prep-time').textContent = mmss(Math.max(0, left));
+    if (left <= 0) { clearInterval(timer); armRecorder(s); }
+  }, 1000);
+}
+$('#skip-prep').onclick = () => { clearInterval(timer); armRecorder(session.plan[step]); };
+
+function armRecorder(s) {
+  show('#phase-prep', false); show('#phase-record', true);
+  $('#rec-btn').textContent = '🎤'; $('#rec-btn').classList.remove('stop');
+  $('#rec-btn').disabled = false;
+  $('#rec-time').textContent = mmss(s.answer_sec);
+  $('#rec-hint').textContent = 'Tayyor bo\'lsangiz, tugmani bosing va gapiring.';
+  ring(1);
+  $('#rec-btn').onclick = () => startRecording(s);
+}
+function ring(fraction) {
+  const c = 2 * Math.PI * 52;
+  const el = $('#ring');
+  el.style.strokeDasharray = c;
+  el.style.strokeDashoffset = c * (1 - fraction);
+}
+
+let audioCtx, analyser, levelRaf;
+function startRecording(s) {
+  chunks = [];
+  const mimes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
+  const mime = mimes.find((m) => window.MediaRecorder?.isTypeSupported?.(m)) || '';
+  try {
+    rec = new MediaRecorder(stream, mime ? { mimeType: mime, audioBitsPerSecond: 32000 } : undefined);
+  } catch (e) { return fatal('Brauzer ovoz yozishni qo\'llab-quvvatlamadi: ' + e.message); }
+  rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+  rec.onstop = () => finishRecording(s);
+  rec.start();
+  $('#rec-btn').textContent = '⏹'; $('#rec-btn').classList.add('stop');
+  $('#rec-hint').textContent = 'Gapiring... Tugatgach tugmani bosing yoki vaqt tugashini kuting.';
+  $('#rec-btn').onclick = () => { if (rec && rec.state === 'recording') rec.stop(); };
+
+  // mikrofon darajasi
+  try {
+    audioCtx ||= new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser(); analyser.fftSize = 512;
+    audioCtx.createMediaStreamSource(stream).connect(analyser);
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    const tick = () => {
+      analyser.getByteTimeDomainData(data);
+      let peak = 0; for (const v of data) peak = Math.max(peak, Math.abs(v - 128));
+      $('#level').style.width = Math.min(100, (peak / 60) * 100) + '%';
+      levelRaf = requestAnimationFrame(tick);
+    };
+    tick();
+  } catch (e) {}
+
+  const started = Date.now();
+  clearInterval(timer);
+  timer = setInterval(() => {
+    const spent = (Date.now() - started) / 1000, left = s.answer_sec - spent;
+    $('#rec-time').textContent = mmss(Math.max(0, left));
+    ring(Math.max(0, left / s.answer_sec));
+    if (left <= 0) { clearInterval(timer); if (rec && rec.state === 'recording') rec.stop(); }
+  }, 200);
+}
+
+async function finishRecording(s) {
+  clearInterval(timer); cancelAnimationFrame(levelRaf);
+  $('#level').style.width = '0%';
+  const type = rec.mimeType || 'audio/webm';
+  const blob = new Blob(chunks, { type });
+  lastBlob = { blob, type, sec: Math.round(blob.size / 4000) };
+  show('#phase-record', false);
+  await upload(s);
+}
+
+async function upload(s) {
+  show('#phase-wait', true); show('#exam-error', false); show('#retry-btn', false); show('#skip-btn', false);
+  $('#wait-text').textContent = 'AI javobingizni tinglayapti...';
+  let w = 20; const grow = setInterval(() => { w = Math.min(92, w + 4); $('#wait-bar').style.width = w + '%'; }, 700);
+  try {
+    const b64 = await new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(String(fr.result).split(',')[1]);
+      fr.onerror = () => reject(new Error('Audio o\'qilmadi'));
+      fr.readAsDataURL(lastBlob.blob);
+    });
+    const r = await api(`/api/speaking/sessions/${session.session_id}/answers`, {
+      idx: s.idx, audio: b64, mime: lastBlob.type.split(';')[0], duration_sec: lastBlob.sec,
+    });
+    clearInterval(grow); $('#wait-bar').style.width = '100%';
+    show('#phase-wait', false);
+    $('#transcript-preview').textContent = r.transcript ? '“' + r.transcript.slice(0, 220) + (r.transcript.length > 220 ? '…' : '') + '”' : '';
+    if (r.next === null) { $('#next-btn').textContent = 'Imtihonni yakunlash va natijani ko\'rish →'; }
+    show('#phase-next', true);
+  } catch (ex) {
+    clearInterval(grow);
+    show('#phase-wait', false);
+    $('#exam-error').textContent = ex.message;
+    show('#exam-error', true); show('#retry-btn', true); show('#skip-btn', true);
+  }
+}
+$('#retry-btn').onclick = () => upload(session.plan[step]);
+$('#skip-btn').onclick = () => nextStep();
+$('#next-btn').onclick = () => nextStep();
+
+function nextStep() {
+  step++;
+  if (step < session.plan.length) showStep();
+  else finishExam();
+}
+
+async function finishExam() {
+  $('#step-exam').classList.add('hidden');
+  const box = $('#step-result'); box.classList.remove('hidden');
+  box.innerHTML = `<div class="card" style="text-align:center">
+    <h2>Javoblaringiz baholanmoqda</h2>
+    <p class="muted">Bu 10–20 soniya oladi. Sahifani yopmang.</p>
+    <div class="progress"><div style="width:60%"></div></div></div>`;
+  stream?.getTracks().forEach((t) => t.stop());
+  try {
+    const r = await api(`/api/speaking/sessions/${session.session_id}/finish`, {});
+    renderResult(r);
+  } catch (ex) {
+    box.innerHTML = `<div class="card"><h2>Natijani hisoblab bo'lmadi</h2>
+      <p class="error">${esc(ex.message)}</p>
+      <p class="muted">Javoblaringiz saqlangan — ustozingiz ularni ko'ra oladi.</p>
+      <p><button onclick="location.reload()">Bosh sahifaga</button></p></div>`;
+  }
+}
+
+const CRIT = { fluency: 'Fluency & Coherence', lexical: 'Lexical Resource', grammar: 'Grammatical Range', pronunciation: 'Pronunciation' };
+function renderResult(r) {
+  const crit = Object.entries(CRIT).map(([k, label]) => {
+    const c = r[k] || {};
+    return `<div class="crit"><span>${label}</span>
+      <div class="bar"><div style="width:${((c.band || 0) / 9) * 100}%"></div></div><b>${c.band ?? '—'}</b>
+      <div class="cm">${esc(c.comment || '')}</div></div>`;
+  }).join('');
+  $('#step-result').innerHTML = `
+    <div class="card band-hero">
+      <p class="muted">${esc(r.student_name || '')}</p>
+      <div class="band-num">${r.overall_band ?? '—'}</div>
+      <p><b>Estimated IELTS band</b>${r.cefr ? ` · CEFR ${esc(r.cefr)}` : ''}</p>
+      <p class="disclaimer" style="max-width:520px;margin:12px auto 0">Mashq imtihoni natijasi. Rasmiy IELTS bali emas, ustozingiz bahosi bilan solishtiriladi.</p>
+    </div>
+    <div class="card"><h2>Criteria</h2>${crit}</div>
+    ${r.summary ? `<div class="card"><h2>Examiner's summary</h2><p>${esc(r.summary)}</p></div>` : ''}
+    ${(r.strengths || []).length ? `<div class="card"><h2>What went well</h2><ul>${r.strengths.map((s) => `<li>${esc(s)}</li>`).join('')}</ul></div>` : ''}
+    ${(r.improvements || []).length ? `<div class="card"><h2>Fix these first</h2>
+      ${r.improvements.map((i) => `<div class="fix"><b>${esc(i.issue || '')}</b><br>
+        <span class="said">✗ ${esc(i.example || '')}</span><br><span class="ok">✓ ${esc(i.better || '')}</span>
+        ${i.advice ? `<br><span class="mini">${esc(i.advice)}</span>` : ''}</div>`).join('')}</div>` : ''}
+    ${(r.next_steps || []).length ? `<div class="card"><h2>Practise before next time</h2><ol>${r.next_steps.map((s) => `<li>${esc(s)}</li>`).join('')}</ol></div>` : ''}
+    <p class="row"><a class="btn btn-light" href="/speaking">Yangi imtihon</a><a class="btn btn-light" href="/">Daraja testi</a></p>`;
+  window.scrollTo(0, 0);
+}
+
+function fatal(msg) {
+  $('#exam-error').textContent = msg;
+  show('#exam-error', true);
+}
+</script>
+</body>
+</html>
