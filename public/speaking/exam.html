@@ -336,6 +336,15 @@ function startRecording(s) {
   }, 200);
 }
 
+// Javob fonda yuboriladi va baholanadi — o'quvchi kutib o'tirmaydi
+const pending = new Map();
+const toB64 = (blob) => new Promise((resolve, reject) => {
+  const fr = new FileReader();
+  fr.onload = () => resolve(String(fr.result).split(',')[1]);
+  fr.onerror = () => reject(new Error('Audio o\'qilmadi'));
+  fr.readAsDataURL(blob);
+});
+
 async function finishRecording(s) {
   clearInterval(timer); cancelAnimationFrame(levelRaf);
   $('#level').style.width = '0%';
@@ -343,36 +352,44 @@ async function finishRecording(s) {
   const blob = new Blob(chunks, { type });
   lastBlob = { blob, type, sec: Math.round(blob.size / 4000) };
   show('#phase-record', false);
-  await upload(s);
+  queueUpload(s.idx, lastBlob);
+  show('#exam-error', false); show('#retry-btn', false); show('#skip-btn', false);
+  if (s.idx === session.plan.length - 1) $('#next-btn').textContent = 'Imtihonni yakunlash va natijani ko\'rish →';
+  show('#phase-next', true);
+  paintSendState(s.idx);
 }
 
-async function upload(s) {
-  show('#phase-wait', true); show('#exam-error', false); show('#retry-btn', false); show('#skip-btn', false);
-  $('#wait-text').textContent = 'AI javobingizni tinglayapti...';
-  let w = 20; const grow = setInterval(() => { w = Math.min(92, w + 4); $('#wait-bar').style.width = w + '%'; }, 700);
-  try {
-    const b64 = await new Promise((resolve, reject) => {
-      const fr = new FileReader();
-      fr.onload = () => resolve(String(fr.result).split(',')[1]);
-      fr.onerror = () => reject(new Error('Audio o\'qilmadi'));
-      fr.readAsDataURL(lastBlob.blob);
-    });
-    const r = await api(`/api/speaking/sessions/${session.session_id}/answers`, {
-      idx: s.idx, audio: b64, mime: lastBlob.type.split(';')[0], duration_sec: lastBlob.sec,
-    });
-    clearInterval(grow); $('#wait-bar').style.width = '100%';
-    show('#phase-wait', false);
-    $('#transcript-preview').textContent = r.transcript ? '“' + r.transcript.slice(0, 220) + (r.transcript.length > 220 ? '…' : '') + '”' : '';
-    if (r.next === null) { $('#next-btn').textContent = 'Imtihonni yakunlash va natijani ko\'rish →'; }
-    show('#phase-next', true);
-  } catch (ex) {
-    clearInterval(grow);
-    show('#phase-wait', false);
-    $('#exam-error').textContent = ex.message;
-    show('#exam-error', true); show('#retry-btn', true); show('#skip-btn', true);
-  }
+function queueUpload(idx, media) {
+  const item = { idx, blob: media.blob, mime: media.type.split(';')[0], sec: media.sec, state: 'sending' };
+  item.promise = send(item);
+  pending.set(idx, item);
+  return item;
 }
-$('#retry-btn').onclick = () => upload(session.plan[step]);
+async function send(item) {
+  try {
+    const b64 = await toB64(item.blob);
+    const r = await api(`/api/speaking/sessions/${session.session_id}/answers`, {
+      idx: item.idx, audio: b64, mime: item.mime, duration_sec: item.sec,
+    });
+    item.state = 'done'; item.transcript = r.transcript || '';
+  } catch (ex) {
+    item.state = 'failed'; item.error = ex.message;
+  }
+  if (step === item.idx) paintSendState(item.idx);
+}
+function paintSendState(idx) {
+  const it = pending.get(idx); if (!it) return;
+  const el = $('#transcript-preview');
+  if (it.state === 'sending') el.innerHTML = '<span class="muted">⬆ Javobingiz yuborilmoqda — kutib o\'tirmang, keyingi savolga o\'tavering.</span>';
+  else if (it.state === 'done') el.innerHTML = '<span class="ok-text">✓ Javob qabul qilindi</span>';
+  else el.innerHTML = `<span class="err-text">⚠ Yuborishda xatolik: ${esc(it.error || '')}</span>`;
+}
+
+$('#retry-btn').onclick = () => {
+  const it = pending.get(step);
+  if (it) { it.state = 'sending'; it.promise = send(it); paintSendState(step); }
+  show('#retry-btn', false);
+};
 $('#skip-btn').onclick = () => nextStep();
 $('#next-btn').onclick = () => nextStep();
 
@@ -387,9 +404,22 @@ async function finishExam() {
   const box = $('#step-result'); box.classList.remove('hidden');
   box.innerHTML = `<div class="card" style="text-align:center">
     <h2>Javoblaringiz baholanmoqda</h2>
-    <p class="muted">Bu 10–20 soniya oladi. Sahifani yopmang.</p>
+    <p class="muted" id="fin-note">Oxirgi javoblar yuborilmoqda. Sahifani yopmang.</p>
     <div class="progress"><div style="width:60%"></div></div></div>`;
   stream?.getTracks().forEach((t) => t.stop());
+
+  // fonda yuborilayotgan javoblarni kutamiz, muvaffaqiyatsizlarini bir marta qayta yuboramiz
+  await Promise.all([...pending.values()].map((p) => p.promise));
+  const failed = [...pending.values()].filter((p) => p.state === 'failed');
+  if (failed.length) {
+    $('#fin-note').textContent = `${failed.length} ta javob qayta yuborilmoqda...`;
+    await Promise.all(failed.map((p) => { p.state = 'sending'; return (p.promise = send(p)); }));
+  }
+  const lost = [...pending.values()].filter((p) => p.state === 'failed').length;
+  if ($('#fin-note')) $('#fin-note').textContent = lost
+    ? `${lost} ta javob yuborilmadi — hisobot qolganlari bo'yicha tuziladi.`
+    : 'Hisobot tayyorlanmoqda. Bu 10–20 soniya oladi.';
+
   try {
     const r = await api(`/api/speaking/sessions/${session.session_id}/finish`, {});
     renderResult(r);

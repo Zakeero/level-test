@@ -148,3 +148,14 @@ vercel.json          — Vercel sozlamalari
 ```
 
 Ranglarni o'zgartirish uchun `public/style.css` boshidagi `--brand` (asosiy rang) va unga yaqin `--brand-*` qiymatlarini almashtiring.
+
+## AI Speaking
+
+- **`/speaking`** — tanishtiruv (landing) sahifasi, **`/speaking/exam`** — imtihonning o'zi.
+- O'quvchi ikki yo'ldan kiradi: *Registon o'quvchisi* (ustoz + guruhni ro'yxatdan tanlaydi, bepul)
+  yoki *kirish kodi bilan* (tashqaridan kelganlar; kod admin panelda yaratiladi).
+- Javob yozib bo'lingach fonda yuboriladi va baholanadi — o'quvchi kutib o'tirmaydi.
+- Admin panel → 🎙 Speaking → 🔑 Kirish kodlari: kod paketlarini yaratish, nusxalash, bekor qilish.
+
+Kerakli env o'zgaruvchilar: `GEMINI_API_KEY`, ixtiyoriy `GEMINI_MODEL` va `GEMINI_FALLBACK_MODEL`
+(asosiy model band bo'lsa zaxiraga o'tadi), ovoz yozuvlari uchun `BLOB_READ_WRITE_TOKEN`.
