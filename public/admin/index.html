@@ -166,6 +166,7 @@
   <div class="card">
     <div class="row">
       <h2 style="margin:0">Speaking natijalari</h2><span class="spacer"></span>
+      <button class="btn-light btn-sm" id="sp-codes-btn">🔑 Kirish kodlari</button>
       <button class="btn-light btn-sm" id="sp-bank-btn">📚 Savollar banki</button>
     </div>
     <div class="row" style="margin:12px 0">
@@ -173,6 +174,9 @@
       <select id="sp-teacher" style="flex:1;min-width:150px"><option value="">Barcha ustozlar</option></select>
       <select id="sp-status" style="flex:1;min-width:150px">
         <option value="">Hammasi</option><option value="done">Yakunlangan</option><option value="open">Tugallanmagan</option>
+      </select>
+      <select id="sp-type" style="flex:1;min-width:150px">
+        <option value="">Hamma turdagi</option><option value="registon">Registon o'quvchisi</option><option value="guest">Kod bilan</option>
       </select>
     </div>
     <div class="table-wrap"><table>
@@ -193,6 +197,31 @@
     <p class="muted" style="margin-top:10px">Har bir imtihonda Part 1 uchun bitta mavzu, Part 2 va Part 3 uchun boshqa mavzu tasodifiy tanlanadi. Mavzuda kamida 4 ta Part 1 savoli, 1 ta kartochka va 3 ta Part 3 savoli bo'lgani ma'qul.</p>
   </div>
   <div id="sp-topics"></div>
+</main>
+
+<!-- Speaking kirish kodlari -->
+<main class="wrap wide hidden" id="spcodes-view">
+  <div class="card">
+    <div class="row">
+      <button class="btn-light btn-sm" id="spc-back">← Natijalar</button>
+      <h2 style="margin:0">Kirish kodlari</h2><span class="spacer"></span>
+    </div>
+    <p class="muted" style="margin-top:10px">Registon o'quvchilari ustoz va guruhini tanlab bepul topshiradi. Tashqaridan kelganlar naqd to'lov qilgach shu yerdagi koddan oladi — bitta kod bitta imtihon uchun.</p>
+    <form id="spc-form" class="row" style="margin-top:14px;align-items:flex-end">
+      <div style="width:110px"><label for="spc-count">Nechta kod</label><input id="spc-count" type="number" min="1" max="100" value="5"></div>
+      <div style="width:150px"><label for="spc-uses">Har biri necha marta</label><input id="spc-uses" type="number" min="1" max="500" value="1"></div>
+      <div style="width:150px"><label for="spc-days">Amal qilish muddati</label><input id="spc-days" type="number" min="0" max="365" value="0" placeholder="0 = cheksiz"></div>
+      <div style="flex:1;min-width:180px"><label for="spc-note">Izoh (ixtiyoriy)</label><input id="spc-note" placeholder="Masalan: 5-oktabr, kassa"></div>
+      <button type="submit">+ Kod yaratish</button>
+    </form>
+    <div id="spc-fresh" class="hidden"></div>
+  </div>
+  <div class="card">
+    <div class="table-wrap"><table>
+      <thead><tr><th>Kod</th><th>Izoh</th><th>Ishlatilgan</th><th>Holati</th><th>Yaratilgan</th><th></th></tr></thead>
+      <tbody id="spc-body"></tbody>
+    </table></div>
+  </div>
 </main>
 
 <!-- Speaking sessiya tafsiloti -->
@@ -381,7 +410,7 @@ function logout() {
 }
 $('#logout').onclick = logout;
 
-const TAB_OF = { results: 'results', tests: 'tests', content: 'tests', people: 'people', speaking: 'speaking', spbank: 'speaking' };
+const TAB_OF = { results: 'results', tests: 'tests', content: 'tests', people: 'people', speaking: 'speaking', spbank: 'speaking', spcodes: 'speaking' };
 function show(view) {
   document.querySelectorAll('main').forEach((m) => m.classList.add('hidden'));
   $(`#${view}-view`).classList.remove('hidden');
@@ -883,6 +912,7 @@ async function loadSpeaking() {
       <div class="stat"><span class="muted">Part 1 / 2 / 3 savollari</span><b>${cfg.p1} / ${cfg.p2} / ${cfg.p3}</b></div>
       <div class="stat"><span class="muted">Yakunlangan imtihonlar</span><b>${cfg.done}</b></div>
       <div class="stat"><span class="muted">O'rtacha band</span><b>${cfg.avg_band}</b></div>
+      <div class="stat"><span class="muted">Bo'sh kirish kodlari</span><b>${cfg.codes_free ?? 0}</b></div>
     </div>
     ${warn.length ? `<div class="notice" style="margin-top:12px">${warn.join('<br>')}</div>` : ''}
     ${cfg.topics === 0 ? '<p><button id="sp-seed">📚 Namuna savollar bankini yuklash (8 mavzu)</button></p>' : ''}`;
@@ -896,7 +926,9 @@ async function loadSpeaking() {
     <tr class="click" data-sp="${r.id}">
       <td>${fmt(r.started_at)}</td>
       <td><b>${esc(r.student_name)}</b><br><small class="muted">${esc(r.phone)}</small></td>
-      <td>${esc(r.teacher) || '—'}<br><small class="muted">${esc(r.group_name)}</small></td>
+      <td>${r.student_type === 'guest'
+        ? `<span class="pill">kod bilan</span>${r.code ? `<br><small class="muted">${esc(r.code)}</small>` : ''}`
+        : `${esc(r.teacher) || '—'}<br><small class="muted">${esc(r.group_name)}</small>`}</td>
       <td>${r.answers}</td>
       <td>${r.overall_band ? `<b style="font-size:16px">${r.overall_band}</b>${r.cefr ? `<br><small class="muted">${esc(r.cefr)}</small>` : ''}` : '<span class="pill">tugallanmagan</span>'}</td>
       <td>${r.teacher_band ? `<b>${r.teacher_band}</b>` : '<span class="muted">—</span>'}</td>
@@ -905,11 +937,70 @@ async function loadSpeaking() {
 }
 const spFilters = () => {
   const p = new URLSearchParams();
-  [['search', '#sp-search'], ['teacher_id', '#sp-teacher'], ['status', '#sp-status']].forEach(([k, s]) => $(s)?.value && p.set(k, $(s).value));
+  [['search', '#sp-search'], ['teacher_id', '#sp-teacher'], ['status', '#sp-status'], ['type', '#sp-type']].forEach(([k, s]) => $(s)?.value && p.set(k, $(s).value));
   return p.toString();
 };
 let spT;
-['#sp-search', '#sp-teacher', '#sp-status'].forEach((s) => $(s).addEventListener('input', () => { clearTimeout(spT); spT = setTimeout(loadSpeaking, 300); }));
+['#sp-search', '#sp-teacher', '#sp-status', '#sp-type'].forEach((s) => $(s).addEventListener('input', () => { clearTimeout(spT); spT = setTimeout(loadSpeaking, 300); }));
+
+// ---------- kirish kodlari ----------
+$('#sp-codes-btn').onclick = () => { show('spcodes'); loadSpCodes(); };
+$('#spc-back').onclick = () => { show('speaking'); loadSpeaking(); };
+
+async function loadSpCodes() {
+  const rows = await spApi('/codes');
+  const now = Date.now();
+  const state = (r) => {
+    if (!r.active) return ['bekor qilingan', 'muted'];
+    if (r.expires_at && Number(r.expires_at) < now) return ['muddati tugagan', 'muted'];
+    if (r.used >= r.max_uses) return ['ishlatilgan', 'muted'];
+    return ['bo\'sh', 'ok'];
+  };
+  $('#spc-body').innerHTML = rows.length ? rows.map((r) => {
+    const [label, kind] = state(r);
+    return `<tr>
+      <td><code class="codev">${esc(r.pretty)}</code></td>
+      <td>${esc(r.note) || '<span class="muted">—</span>'}</td>
+      <td>${r.used} / ${r.max_uses}${r.finished ? `<br><small class="muted">${r.finished} ta yakunlangan</small>` : ''}</td>
+      <td><span class="pill ${kind === 'ok' ? 'ok' : ''}">${label}</span>${r.expires_at ? `<br><small class="muted">${fmt(Number(r.expires_at))} gacha</small>` : ''}</td>
+      <td>${fmt(Number(r.created_at))}</td>
+      <td class="row" style="gap:6px">
+        <button class="btn-light btn-sm" data-spc-toggle="${r.id}" data-active="${r.active ? 1 : 0}">${r.active ? 'Bekor qilish' : 'Tiklash'}</button>
+        <button class="btn-danger btn-sm" data-spc-del="${r.id}">O'chirish</button>
+      </td></tr>`;
+  }).join('') : '<tr><td colspan="6" class="muted">Hali kod yaratilmagan</td></tr>';
+
+  document.querySelectorAll('[data-spc-toggle]').forEach((b) => b.onclick = async () => {
+    await spApi('/codes/' + b.dataset.spcToggle, 'PUT', { active: b.dataset.active !== '1' });
+    loadSpCodes();
+  });
+  document.querySelectorAll('[data-spc-del]').forEach((b) => b.onclick = async () => {
+    if (!confirm('Kod o\'chirilsinmi?')) return;
+    await spApi('/codes/' + b.dataset.spcDel, 'DELETE'); loadSpCodes();
+  });
+}
+
+$('#spc-form').onsubmit = async (e) => {
+  e.preventDefault();
+  const body = {
+    count: +$('#spc-count').value || 1,
+    max_uses: +$('#spc-uses').value || 1,
+    expires_days: +$('#spc-days').value || 0,
+    note: $('#spc-note').value,
+  };
+  const d = await spApi('/codes', 'POST', body);
+  const box = $('#spc-fresh');
+  box.classList.remove('hidden');
+  box.innerHTML = `<div class="notice" style="margin-top:14px">
+      <b>Yangi kodlar (${d.codes.length} ta)</b> — nusxa olib, to'lov qilganlarga bering:
+      <div class="code-list">${d.codes.map((c) => `<code class="codev">${esc(c)}</code>`).join('')}</div>
+      <button class="btn-light btn-sm" id="spc-copy">Hammasini nusxalash</button>
+    </div>`;
+  $('#spc-copy').onclick = async () => {
+    try { await navigator.clipboard.writeText(d.codes.join('\n')); $('#spc-copy').textContent = '✓ Nusxalandi'; } catch (ex) {}
+  };
+  loadSpCodes();
+};
 
 const SP_CRIT = { fluency: 'Fluency', lexical: 'Lexical', grammar: 'Grammar', pronunciation: 'Pronunciation' };
 async function openSpSession(id) {

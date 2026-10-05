@@ -12,6 +12,10 @@
       "destination": "/speaking/index.html"
     },
     {
+      "source": "/speaking/exam",
+      "destination": "/speaking/exam.html"
+    },
+    {
       "source": "/admin",
       "destination": "/admin/index.html"
     }
