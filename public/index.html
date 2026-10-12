@@ -12,10 +12,26 @@
 <body>
 <header class="top">
   <a class="logo" href="/"><img src="/img/logo.png" alt="Registon o'quv markazi" width="148" height="38"><span class="sub">Daraja testi</span></a>
+  <a class="btn btn-light btn-sm" href="/speaking" id="to-speaking-top">🎙 AI Speaking</a>
 </header>
 
 <!-- 1. Ro'yxatdan o'tish -->
 <main class="wrap" id="step-start">
+  <div class="card pick-exam">
+    <h2 style="margin:0 0 10px">Qaysi imtihonni topshirasiz?</h2>
+    <div class="exam-two">
+      <div class="exam-opt sel">
+        <b>📝 Daraja testi</b>
+        <span class="muted">Grammar, Reading, Listening — yozma test. Natija darhol chiqadi.</span>
+        <span class="mini ok-text">Quyida davom eting ↓</span>
+      </div>
+      <a class="exam-opt" href="/speaking">
+        <b>🎙 AI Speaking imtihoni</b>
+        <span class="muted">Og'zaki imtihon: AI savol beradi, javobingizni tinglab IELTS bandini aytadi.</span>
+        <span class="mini brand-link">Speaking imtihoniga o'tish →</span>
+      </a>
+    </div>
+  </div>
   <div class="card">
     <h1>Keyingi darajaga o'tish testi</h1>
     <p class="muted">Ma'lumotlaringizni kiriting, ustozingiz va guruhingizni tanlang, so'ng testni boshlang.</p>
@@ -193,7 +209,7 @@ $('#start-form').onsubmit = async (e) => {
   $('#start-btn').disabled = true;
   try {
     const data = await api('/api/attempts', { ...fd, test_id: selectedTest });
-    state = { ...data, answers: {}, plays: {}, violations: 0, offset: data.server_now - Date.now() };
+    state = { ...data, answers: {}, plays: {}, violations: 0, offset: data.server_now - Date.now(), student: fd };
     store(state);
     renderTest();
   } catch (ex) {
@@ -490,7 +506,24 @@ function renderResult(r) {
           <small>Sizning javobingiz: ${q.picked === null ? '<em>javob berilmagan</em>' : esc(q.picked)} ${q.ok ? '✅' : '❌'}</small>
           ${q.ok ? '' : `<small>To'g'ri javob: <b>${esc(q.correct)}</b></small>`}
         </div>`).join('')}</div>` : ''}
+    <div class="card cta-card">
+      <h2>🎙 Endi Speaking darajangizni ham bilib oling</h2>
+      <p class="muted">Yozma test grammatika, o'qish va tinglashni o'lchaydi. Og'zaki nutqingizni AI imtihon oluvchi tekshiradi:
+        12 daqiqalik suhbat, IELTS mezonlari bo'yicha band va xatolaringiz ustida ishlash rejasi.</p>
+      <p><a class="btn" id="to-speaking" href="/speaking/exam">Speaking imtihonini boshlash →</a></p>
+    </div>
     <p><a class="btn btn-light" href="/">Bosh sahifaga</a></p>`;
+  // ma'lumotlarni Speaking formasiga olib o'tamiz — o'quvchi qayta yozmasin
+  try {
+    const f = (state && state.student) || {};
+    const carry = {
+      student_name: f.student_name || r.student_name || '', phone: f.phone || '',
+      teacher_id: f.teacher_id || '', group_id: f.group_id || '',
+    };
+    sessionStorage.setItem('registan_student', JSON.stringify(carry));
+    const link = $('#to-speaking');
+    if (link) link.href = '/speaking/exam?type=registon&from=level';
+  } catch (e) {}
   window.scrollTo(0, 0);
 }
 

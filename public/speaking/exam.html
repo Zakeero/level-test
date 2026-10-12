@@ -49,7 +49,8 @@
         <ul>
           <li>Imtihon oluvchi (AI) siz bilan salomlashadi, so'ng savollarni ovozda beradi — xuddi haqiqiy suhbatdek.</li>
           <li><b>Tugma bosish shart emas:</b> savol tugashi bilan mikrofon o'zi yonadi, siz jim qolganingizda o'zi keyingi savolga o'tadi. Xohlasangiz "Tugatdim" tugmasini bosasiz.</li>
-          <li>Part 1 — qisqa savollar (~5 daqiqa), Part 2 — kartochka: 1 daqiqa tayyorgarlik + 1–2 daqiqa gapirish, Part 3 — muhokama (~5 daqiqa). Jami ~12–14 daqiqa.</li>
+          <li><b>Part 1</b> — 3–5 qisqa savol: har biriga 10 soniya o'ylash, 30 soniya javob. <b>Part 2</b> — kartochka: 1 daqiqa tayyorgarlik, 2 daqiqagacha gapirish. <b>Part 3</b> — 3–5 muhokama savoli: 10 soniya o'ylash, 30 soniya javob.</li>
+          <li>O'ylash vaqti javob vaqtidan alohida — gapira boshlaganingizda javob taymeri yurib ketadi.</li>
           <li>Tinch xonada o'tiring, iloji bo'lsa naushnik taqing — shunda mikrofon ovozingizni to'g'ri ajratadi.</li>
           <li>Ovozingiz yozib olinadi va ustozingiz eshita oladi.</li>
         </ul>
@@ -157,6 +158,25 @@ function say(text) {
     if (r) { r.checked = true; }
   }
   applyWho();
+  // daraja testidan o'tib kelgan bo'lsa — ma'lumotlarni qayta yozish shart emas
+  try {
+    const carry = JSON.parse(sessionStorage.getItem('registan_student') || 'null');
+    if (carry && carry.student_name) {
+      $('#f-name').value = carry.student_name;
+      $('#f-phone').value = carry.phone || '';
+      if ($('#f-teacher') && carry.teacher_id) {
+        $('#f-teacher').value = carry.teacher_id;
+        fillGroups(+carry.teacher_id || null);
+        if ($('#f-group') && carry.group_id) $('#f-group').value = carry.group_id;
+      }
+      if (new URLSearchParams(location.search).get('from') === 'level') {
+        const n = document.createElement('p');
+        n.className = 'notice';
+        n.innerHTML = '✓ Daraja testidagi ma\'lumotlaringiz olindi — faqat qoidalarni belgilab, boshlang.';
+        $('#start-form').prepend(n);
+      }
+    }
+  } catch (e) {}
   speechSynthesis?.getVoices();
 })();
 
@@ -403,7 +423,8 @@ function prepPhase(s) {
 }
 
 // --- javobni tinglash: avtomatik boshlanadi va avtomatik tugaydi ---
-// Bitta yozuv davomida: kutish (grace) → gapirish → sukunat → to'xtash.
+// Bitta yozuv davomida: o'ylash vaqti → gapirish → sukunat → to'xtash.
+// Javob taymeri (max) gapirish boshlangan paytdan hisoblanadi, o'ylash vaqti unga kirmaydi.
 // Savolni takrorlash va "Is that everything?" o'sha yozuv ichida bo'lib o'tadi.
 function listen(s) {
   return new Promise((resolve) => {
@@ -416,7 +437,7 @@ function listen(s) {
     rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
 
     let started = Date.now(), graceFrom = Date.now();
-    let askedMore = false, repeatedQ = false, busy = false, ended = false;
+    let askedMore = false, repeatedQ = false, busy = false, ended = false, everSpoke = false;
     vad.started = false; vad.lastVoice = 0; listening = true;
     show('#phase-record', true);
     $('#mic-state').textContent = 'Tinglanmoqda…';
@@ -429,8 +450,9 @@ function listen(s) {
       clearInterval(timer); $('#level').style.width = '0%';
       $('#done-btn').onclick = null; show('#phase-record', false);
       const sec = Math.round((Date.now() - started) / 1000);
-      rec.onstop = () => resolve(afterAnswer(s, sec, why));
-      try { if (rec.state === 'recording') rec.stop(); else resolve(afterAnswer(s, sec, why)); } catch (e) { resolve(afterAnswer(s, sec, why)); }
+      const done = () => resolve(afterAnswer(s, sec, everSpoke ? why : 'no-answer'));
+      rec.onstop = done;
+      try { if (rec.state === 'recording') rec.stop(); else done(); } catch (e) { done(); }
     };
     rec.start();
     $('#done-btn').onclick = () => stop('manual');
@@ -447,23 +469,30 @@ function listen(s) {
     };
 
     clearInterval(timer);
+    let speakFrom = 0;                        // gapirish boshlangan payt — javob taymeri shundan hisoblanadi
     timer = setInterval(() => {
       if (busy || ended) return;
-      const now = Date.now(), spent = (now - started) / 1000, waited = (now - graceFrom) / 1000;
+      const now = Date.now(), waited = (now - graceFrom) / 1000;
       const silent = vad.lastVoice ? (now - vad.lastVoice) / 1000 : 0;
-      $('#rec-time').textContent = mmss(Math.max(0, s.max - spent));
       paintHead(s);
 
-      if (spent >= s.max) return stop('max');                       // vaqt tugadi
-
-      if (!vad.started) {                                           // hali gapirmadi
-        if (waited >= s.grace && !repeatedQ) { repeatedQ = true; interject(s.text, 'Savol takrorlanmoqda…'); return; }
-        if (repeatedQ && waited >= s.grace + 3) return stop('no-answer');
+      if (!vad.started) {                                           // hali gapirmadi — o'ylash vaqti
+        const left = Math.max(0, (s.think || 10) - waited);
+        $('#mic-state').textContent = 'O\'ylash vaqti';
+        $('#rec-time').textContent = mmss(left);
+        if (waited >= (s.think || 10) && !repeatedQ) { repeatedQ = true; interject(s.text, 'Savol takrorlanmoqda…'); return; }
+        if (repeatedQ && waited >= (s.think || 10) + 5) return stop('no-answer');
         return;
       }
+      if (!speakFrom) { speakFrom = vad.lastVoice || now; everSpoke = true; $('#mic-state').textContent = 'Javob yozilmoqda'; }
+      const spoken = (now - speakFrom) / 1000;
+      $('#rec-time').textContent = mmss(Math.max(0, s.max - spoken));
+
+      if (spoken >= s.max) return stop('max');                      // javob vaqti tugadi
       if (silent >= s.silence) {                                    // gapirdi va jim qoldi
-        if (s.part === 2 && spent < (s.min || 60) && !askedMore) {
+        if (s.part === 2 && spoken < (s.min || 45) && !askedMore) {
           askedMore = true; interject('Is that everything you would like to say?', 'Examiner so\'ramoqda…');
+          speakFrom = 0;
           return;
         }
         return stop('silence');
@@ -508,7 +537,7 @@ let extraIdx = 1000;
 function insertExtras(questions, part) {
   const items = questions.filter(Boolean).map((text) => ({
     idx: extraIdx++, part, topic: '', text, bullets: [], graded: true, extra: true,
-    ...(part === 3 ? { grace: 6, silence: 4, max: 45 } : { grace: 5, silence: 3, max: 40 }),
+    think: 8, silence: 3, max: 30,
   }));
   plan.splice(step + 1, 0, ...items);
 }

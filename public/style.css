@@ -310,3 +310,15 @@ code.codev { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-s
 #notes { margin-top: 10px; font-size: 15px; }
 #phase-record { background: var(--brand-50); border: 1px solid var(--brand-200); border-radius: 12px; padding: 14px; }
 #phase-record p { margin: 10px 0 0; }
+
+/* daraja testi ↔ speaking o'tish kartasi */
+.pick-exam { padding: 18px; }
+.exam-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .exam-two { grid-template-columns: 1fr; } }
+.exam-opt { display: block; border: 2px solid var(--line); border-radius: 12px; padding: 14px; background: #fff; text-decoration: none; color: inherit; }
+.exam-opt b { display: block; font-size: 16px; margin-bottom: 4px; }
+.exam-opt span { display: block; font-size: 14px; }
+.exam-opt .mini { margin-top: 8px; font-weight: 600; }
+.exam-opt.sel { border-color: var(--brand); background: var(--brand-50); }
+a.exam-opt:hover { border-color: var(--brand-200); background: var(--brand-50); }
+.brand-link { color: var(--brand-ink); }
