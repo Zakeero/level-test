@@ -47,9 +47,10 @@
       <div class="rules">
         <strong>🎙 Qanday o'tadi</strong>
         <ul>
-          <li>Har bir savol ekranda chiqadi va ovozda o'qiladi.</li>
-          <li>Javob berish uchun vaqt cheklangan: Part 1 — 30 soniya, Part 2 — 1 daqiqa tayyorgarlik + 2 daqiqa, Part 3 — 45 soniya.</li>
-          <li>Javobni bir marta beriladi, qayta yozib bo'lmaydi. Tinch xonada, naushnik bilan topshiring.</li>
+          <li>Imtihon oluvchi (AI) siz bilan salomlashadi, so'ng savollarni ovozda beradi — xuddi haqiqiy suhbatdek.</li>
+          <li><b>Tugma bosish shart emas:</b> savol tugashi bilan mikrofon o'zi yonadi, siz jim qolganingizda o'zi keyingi savolga o'tadi. Xohlasangiz "Tugatdim" tugmasini bosasiz.</li>
+          <li>Part 1 — qisqa savollar (~5 daqiqa), Part 2 — kartochka: 1 daqiqa tayyorgarlik + 1–2 daqiqa gapirish, Part 3 — muhokama (~5 daqiqa). Jami ~12–14 daqiqa.</li>
+          <li>Tinch xonada o'tiring, iloji bo'lsa naushnik taqing — shunda mikrofon ovozingizni to'g'ri ajratadi.</li>
           <li>Ovozingiz yozib olinadi va ustozingiz eshita oladi.</li>
         </ul>
         <label class="check"><input type="checkbox" id="agree"> Roziman, boshlashga tayyorman</label>
@@ -65,46 +66,49 @@
 <!-- 2. Imtihon -->
 <main class="wrap hidden" id="step-exam">
   <div class="card">
-    <div class="steps" id="steps"></div>
-    <div class="row" style="margin-top:10px">
-      <span class="part-badge" id="part-label">Part 1</span>
+    <div class="row">
+      <span class="part-badge" id="part-label">Tanishuv</span>
       <span class="muted" id="topic-label"></span>
       <span class="spacer"></span>
-      <button class="btn-light btn-sm" id="replay-btn" title="Savolni qayta eshitish">🔊 Qayta eshitish</button>
+      <span class="mini muted" id="part-clock"></span>
     </div>
-    <div class="q-big" id="q-text"></div>
+    <div class="steps" id="steps"></div>
+
+    <div class="examiner">
+      <div class="ex-ava" id="ex-ava">🎓</div>
+      <div class="ex-body">
+        <div class="ex-name">Examiner</div>
+        <div class="q-big" id="q-text"></div>
+      </div>
+    </div>
     <div class="cue hidden" id="cue-box"></div>
 
     <div id="phase-prep" class="hidden">
-      <p class="muted">Tayyorgarlik vaqti. Qog'ozga qayd qilib olishingiz mumkin.</p>
+      <p class="muted">Tayyorgarlik vaqti — quyiga qisqa qaydlar yozib olishingiz mumkin.</p>
       <div class="rec-time" id="prep-time">01:00</div>
+      <textarea id="notes" rows="4" placeholder="Qaydlaringiz (faqat o'zingiz uchun, baholanmaydi)"></textarea>
       <p><button id="skip-prep">Tayyorman, boshlayman →</button></p>
     </div>
 
     <div id="phase-record" class="rec-wrap hidden">
-      <div class="rec-ring">
-        <svg viewBox="0 0 116 116"><circle class="bg" cx="58" cy="58" r="52"></circle><circle class="fg" id="ring" cx="58" cy="58" r="52"></circle></svg>
-        <button class="rec-btn" id="rec-btn">🎤</button>
+      <div class="mic-row">
+        <span class="mic-dot" id="mic-dot"></span>
+        <b id="mic-state">Tinglanmoqda…</b>
+        <span class="spacer"></span>
+        <span class="rec-time sm" id="rec-time">00:45</span>
       </div>
-      <div class="rec-time" id="rec-time">00:30</div>
       <div class="level-bar"><div id="level"></div></div>
-      <p class="muted" id="rec-hint">Tayyor bo'lsangiz, tugmani bosing va gapiring.</p>
+      <p class="mini muted" id="rec-hint">Savolga javob bering — tugaganingizda o'zi to'xtaydi.</p>
+      <p><button class="btn-light" id="done-btn">Tugatdim →</button></p>
     </div>
 
-    <div id="phase-wait" class="hidden">
-      <p><b id="wait-text">AI javobingizni tinglayapti...</b></p>
-      <div class="progress"><div id="wait-bar" style="width:30%"></div></div>
-    </div>
-
-    <div id="phase-next" class="hidden">
-      <div class="notice" style="background:var(--ok-bg);color:var(--ok)">✓ Javob qabul qilindi</div>
-      <p class="mini" id="transcript-preview"></p>
-      <p><button id="next-btn">Keyingi savol →</button></p>
+    <div id="phase-think" class="hidden">
+      <p><b id="think-text">Examiner o'ylamoqda…</b></p>
+      <div class="progress"><div id="wait-bar" style="width:40%"></div></div>
     </div>
 
     <div id="exam-error" class="error hidden" role="alert"></div>
-    <p class="row"><button class="btn-light btn-sm hidden" id="retry-btn">Qayta yuborish</button>
-      <button class="btn-light btn-sm hidden" id="skip-btn">Bu savolni o'tkazib yuborish</button></p>
+    <p class="mini" id="transcript-preview"></p>
   </div>
 </main>
 
@@ -241,102 +245,275 @@ $('#start-form').onsubmit = async (e) => {
     step = 0;
     $('#step-start').classList.add('hidden');
     $('#step-exam').classList.remove('hidden');
-    showStep();
+    runExam();
   } catch (ex) { fail(ex.message); }
   $('#start-btn').disabled = false;
 };
 
-// ---------- 2-qadam: imtihon ----------
+// ---------- 2-qadam: imtihon (suhbat dvigateli) ----------
 const show = (id, on) => $(id).classList.toggle('hidden', !on);
-function showStep() {
-  const s = session.plan[step];
-  $('#steps').innerHTML = session.plan.map((p, i) =>
-    `<span class="${i < step ? 'done' : i === step ? 'now' : ''}">${i + 1}</span>`).join('');
-  $('#part-label').textContent = 'Part ' + s.part;
-  $('#topic-label').textContent = s.topic || '';
-  $('#q-text').textContent = s.text;
-  $('#cue-box').classList.toggle('hidden', !s.bullets.length);
-  if (s.bullets.length) $('#cue-box').innerHTML = `<b>You should say:</b><ul>${s.bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>`;
-  show('#exam-error', false); show('#phase-next', false); show('#phase-wait', false);
-  show('#retry-btn', false); show('#skip-btn', false);
-  say(s.text + (s.bullets.length ? '. You should say: ' + s.bullets.join(', ') : ''));
-  if (s.prep_sec) startPrep(s); else armRecorder(s);
-  window.scrollTo(0, 0);
+const PART_NAME = { 0: 'Tanishuv', 1: 'Part 1', 2: 'Part 2', 3: 'Part 3' };
+let plan = [], rules = {}, partStarted = {}, probed = new Set(), repeated = new Set(), nudged = new Set();
+let listening = false, stopReason = '', vad = { floor: 0.004, voice: false, lastVoice: 0, started: false, raf: 0 };
+
+// --- AI ovozi: gapirib bo'lgunicha kutamiz (so'ngra mikrofon yoqiladi) ---
+function speak(text) {
+  return new Promise((resolve) => {
+    if (window.__mock) { (window.__said ||= []).push(text); return setTimeout(resolve, 120); }
+    $('#ex-ava').classList.add('talking');
+    const done = () => { $('#ex-ava').classList.remove('talking'); resolve(); };
+    let settled = false;
+    const finish = () => { if (!settled) { settled = true; done(); } };
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'en-GB'; u.rate = 0.95;
+      const vs = speechSynthesis.getVoices();
+      const v = vs.find((x) => /en-GB/i.test(x.lang)) || vs.find((x) => /^en/i.test(x.lang));
+      if (v) u.voice = v;
+      u.onend = finish; u.onerror = finish;
+      speechSynthesis.speak(u);
+      // ovoz umuman ishlamasa — darhol davom etamiz
+      setTimeout(() => { if (!speechSynthesis.speaking && !speechSynthesis.pending) finish(); }, 700);
+      // ovoz ishlayotgan bo'lsa-yu onend kelmasa — matn uzunligiga qarab zaxira chegara
+      setTimeout(finish, Math.min(30000, 1500 + text.split(/\s+/).length * 450));
+    } catch (e) { finish(); }
+  });
 }
-$('#replay-btn').onclick = () => {
-  const s = session.plan[step];
-  say(s.text + (s.bullets.length ? '. You should say: ' + s.bullets.join(', ') : ''));
+
+// --- mikrofon darajasi: ovoz bor-yo'qligini aniqlaydi ---
+let audioCtx, analyser, vadData;
+function startVad() {
+  if (analyser) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  analyser = audioCtx.createAnalyser(); analyser.fftSize = 1024; analyser.smoothingTimeConstant = 0.3;
+  audioCtx.createMediaStreamSource(stream).connect(analyser);
+  vadData = new Float32Array(analyser.fftSize);
+  const tick = () => {
+    analyser.getFloatTimeDomainData(vadData);
+    let sum = 0; for (let i = 0; i < vadData.length; i++) sum += vadData[i] * vadData[i];
+    const rms = Math.sqrt(sum / vadData.length);
+    vad.rms = rms;
+    const th = Math.max(vad.floor * 3, vad.floor + 0.006);
+    vad.voice = window.__mock ? !!vad.mock : rms > th;
+    if (vad.voice) { vad.lastVoice = Date.now(); if (listening) vad.started = true; }
+    if (listening) {
+      $('#level').style.width = Math.min(100, (rms / (th * 4)) * 100) + '%';
+      $('#mic-dot').classList.toggle('on', vad.voice);
+    }
+    vad.raf = requestAnimationFrame(tick);
+  };
+  tick();
+}
+// xona shovqinini o'lchash (1.2 soniya jimlik)
+function calibrate() {
+  return new Promise((resolve) => {
+    startVad();
+    const samples = [];
+    const iv = setInterval(() => samples.push(vad.rms || 0), 60);
+    setTimeout(() => {
+      clearInterval(iv);
+      samples.sort((a, b) => a - b);
+      const median = samples[Math.floor(samples.length / 2)] || 0.003;
+      vad.floor = Math.max(0.0025, median);
+      resolve(vad.floor);
+    }, 1200);
+  });
+}
+// sinov uchun: mikrofonni qo'lda boshqarish (?mock=1)
+if (new URLSearchParams(location.search).get('mock') === '1') {
+  window.__mock = true;
+  window.__vad = (on) => { vad.mock = !!on; if (on) { vad.lastVoice = Date.now(); if (listening) vad.started = true; } };
+  window.__state = () => ({ step, idx: plan[step] && plan[step].idx, part: plan[step] && plan[step].part,
+    q: plan[step] && plan[step].text, listening, total: plan.length, said: (window.__said || []).slice(-3) });
+}
+
+// --- imtihonni boshlash ---
+async function runExam() {
+  plan = session.plan.slice();
+  rules = session.rules || { budget: { 1: 300, 3: 300 }, roundoff_max: 2, short_answer_sec: 15, closing: 'Thank you. That is the end of the speaking test.' };
+  $('#q-text').textContent = 'Mikrofon tekshirilmoqda — bir lahza jim turing…';
+  if (!window.__mock) await calibrate(); else startVad();
+  step = 0;
+  await runStep();
+}
+
+async function runStep() {
+  if (step >= plan.length) {
+    show('#phase-record', false); show('#phase-prep', false);
+    $('#q-text').textContent = rules.closing;
+    await speak(rules.closing);
+    return finishExam();
+  }
+  const s = plan[step];
+
+  // qism vaqti tugagan bo'lsa, qolgan savollarni o'tkazib yuboramiz
+  if (overBudget(s.part)) {
+    const next = plan.findIndex((p, i) => i > step && p.part !== s.part);
+    step = next === -1 ? plan.length : next;
+    return runStep();
+  }
+  if (!partStarted[s.part]) partStarted[s.part] = Date.now();
+
+  paintHead(s);
+  show('#exam-error', false); show('#phase-think', false); show('#phase-prep', false); show('#phase-record', false);
+  $('#q-text').textContent = s.text;
+  $('#cue-box').classList.toggle('hidden', !(s.bullets && s.bullets.length));
+  if (s.bullets && s.bullets.length) $('#cue-box').innerHTML = `<b>You should say:</b><ul>${s.bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>`;
+
+  await speak(s.text + (s.bullets && s.bullets.length ? '. You should say: ' + s.bullets.join(', ') : ''));
+  if (s.prep) await prepPhase(s);
+  await listen(s);
+}
+
+function paintHead(s) {
+  $('#part-label').textContent = PART_NAME[s.part] || ('Part ' + s.part);
+  $('#topic-label').textContent = s.part >= 2 ? (s.topic || '') : '';
+  $('#steps').innerHTML = plan.map((p, i) => `<span class="${i < step ? 'done' : i === step ? 'now' : ''}">${i + 1}</span>`).join('');
+  const b = rules.budget && rules.budget[s.part];
+  if (b && partStarted[s.part]) {
+    const left = Math.max(0, b - (Date.now() - partStarted[s.part]) / 1000);
+    $('#part-clock').textContent = PART_NAME[s.part] + ': ' + mmss(left);
+  } else $('#part-clock').textContent = '';
+}
+const overBudget = (part) => {
+  const b = rules.budget && rules.budget[part];
+  return !!(b && partStarted[part] && (Date.now() - partStarted[part]) / 1000 >= b);
 };
 
-function startPrep(s) {
-  show('#phase-prep', true); show('#phase-record', false);
-  let left = s.prep_sec;
-  $('#prep-time').textContent = mmss(left);
-  clearInterval(timer);
-  timer = setInterval(() => {
-    left--; $('#prep-time').textContent = mmss(Math.max(0, left));
-    if (left <= 0) { clearInterval(timer); armRecorder(s); }
-  }, 1000);
-}
-$('#skip-prep').onclick = () => { clearInterval(timer); armRecorder(session.plan[step]); };
-
-function armRecorder(s) {
-  show('#phase-prep', false); show('#phase-record', true);
-  $('#rec-btn').textContent = '🎤'; $('#rec-btn').classList.remove('stop');
-  $('#rec-btn').disabled = false;
-  $('#rec-time').textContent = mmss(s.answer_sec);
-  $('#rec-hint').textContent = 'Tayyor bo\'lsangiz, tugmani bosing va gapiring.';
-  ring(1);
-  $('#rec-btn').onclick = () => startRecording(s);
-}
-function ring(fraction) {
-  const c = 2 * Math.PI * 52;
-  const el = $('#ring');
-  el.style.strokeDasharray = c;
-  el.style.strokeDashoffset = c * (1 - fraction);
-}
-
-let audioCtx, analyser, levelRaf;
-function startRecording(s) {
-  chunks = [];
-  const mimes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
-  const mime = mimes.find((m) => window.MediaRecorder?.isTypeSupported?.(m)) || '';
-  try {
-    rec = new MediaRecorder(stream, mime ? { mimeType: mime, audioBitsPerSecond: 32000 } : undefined);
-  } catch (e) { return fatal('Brauzer ovoz yozishni qo\'llab-quvvatlamadi: ' + e.message); }
-  rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
-  rec.onstop = () => finishRecording(s);
-  rec.start();
-  $('#rec-btn').textContent = '⏹'; $('#rec-btn').classList.add('stop');
-  $('#rec-hint').textContent = 'Gapiring... Tugatgach tugmani bosing yoki vaqt tugashini kuting.';
-  $('#rec-btn').onclick = () => { if (rec && rec.state === 'recording') rec.stop(); };
-
-  // mikrofon darajasi
-  try {
-    audioCtx ||= new (window.AudioContext || window.webkitAudioContext)();
-    analyser = audioCtx.createAnalyser(); analyser.fftSize = 512;
-    audioCtx.createMediaStreamSource(stream).connect(analyser);
-    const data = new Uint8Array(analyser.frequencyBinCount);
-    const tick = () => {
-      analyser.getByteTimeDomainData(data);
-      let peak = 0; for (const v of data) peak = Math.max(peak, Math.abs(v - 128));
-      $('#level').style.width = Math.min(100, (peak / 60) * 100) + '%';
-      levelRaf = requestAnimationFrame(tick);
+// --- Part 2 tayyorgarlik: aniq 60 soniya yoki "Tayyorman" ---
+function prepPhase(s) {
+  return new Promise((resolve) => {
+    show('#phase-prep', true);
+    let left = s.prep, done = false;
+    $('#prep-time').textContent = mmss(left);
+    const end = async () => {
+      if (done) return; done = true;
+      clearInterval(timer); show('#phase-prep', false); $('#skip-prep').onclick = null;
+      await speak('All right. Remember you have one to two minutes. Please start speaking now.');
+      resolve();
     };
-    tick();
-  } catch (e) {}
-
-  const started = Date.now();
-  clearInterval(timer);
-  timer = setInterval(() => {
-    const spent = (Date.now() - started) / 1000, left = s.answer_sec - spent;
-    $('#rec-time').textContent = mmss(Math.max(0, left));
-    ring(Math.max(0, left / s.answer_sec));
-    if (left <= 0) { clearInterval(timer); if (rec && rec.state === 'recording') rec.stop(); }
-  }, 200);
+    clearInterval(timer);
+    timer = setInterval(() => {
+      left--; $('#prep-time').textContent = mmss(Math.max(0, left));
+      if (left <= 0) end();
+    }, 1000);
+    $('#skip-prep').onclick = end;
+  });
 }
 
-// Javob fonda yuboriladi va baholanadi — o'quvchi kutib o'tirmaydi
+// --- javobni tinglash: avtomatik boshlanadi va avtomatik tugaydi ---
+// Bitta yozuv davomida: kutish (grace) → gapirish → sukunat → to'xtash.
+// Savolni takrorlash va "Is that everything?" o'sha yozuv ichida bo'lib o'tadi.
+function listen(s) {
+  return new Promise((resolve) => {
+    chunks = [];
+    const mimes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
+    const mime = mimes.find((m) => window.MediaRecorder?.isTypeSupported?.(m)) || '';
+    try {
+      rec = new MediaRecorder(stream, mime ? { mimeType: mime, audioBitsPerSecond: 32000 } : undefined);
+    } catch (e) { fatal('Brauzer ovoz yozishni qo\'llab-quvvatlamadi: ' + e.message); return resolve(); }
+    rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+
+    let started = Date.now(), graceFrom = Date.now();
+    let askedMore = false, repeatedQ = false, busy = false, ended = false;
+    vad.started = false; vad.lastVoice = 0; listening = true;
+    show('#phase-record', true);
+    $('#mic-state').textContent = 'Tinglanmoqda…';
+    $('#rec-hint').textContent = s.part === 2
+      ? 'Kamida 1 daqiqa gapiring — tugaganingizda o\'zi to\'xtaydi.'
+      : 'Javob bering — jim turganingizda o\'zi keyingi savolga o\'tadi.';
+
+    const stop = (why) => {
+      if (ended) return; ended = true; listening = false;
+      clearInterval(timer); $('#level').style.width = '0%';
+      $('#done-btn').onclick = null; show('#phase-record', false);
+      const sec = Math.round((Date.now() - started) / 1000);
+      rec.onstop = () => resolve(afterAnswer(s, sec, why));
+      try { if (rec.state === 'recording') rec.stop(); else resolve(afterAnswer(s, sec, why)); } catch (e) { resolve(afterAnswer(s, sec, why)); }
+    };
+    rec.start();
+    $('#done-btn').onclick = () => stop('manual');
+
+    // yozuvni to'xtatmasdan AI bir gap aytadi (mikrofon shu payt hisobga olinmaydi)
+    const interject = async (text, label) => {
+      busy = true; listening = false;
+      $('#mic-state').textContent = label;
+      await speak(text);
+      if (ended) return;
+      listening = true; busy = false;
+      vad.lastVoice = 0; vad.started = false; graceFrom = Date.now();
+      $('#mic-state').textContent = 'Tinglanmoqda…';
+    };
+
+    clearInterval(timer);
+    timer = setInterval(() => {
+      if (busy || ended) return;
+      const now = Date.now(), spent = (now - started) / 1000, waited = (now - graceFrom) / 1000;
+      const silent = vad.lastVoice ? (now - vad.lastVoice) / 1000 : 0;
+      $('#rec-time').textContent = mmss(Math.max(0, s.max - spent));
+      paintHead(s);
+
+      if (spent >= s.max) return stop('max');                       // vaqt tugadi
+
+      if (!vad.started) {                                           // hali gapirmadi
+        if (waited >= s.grace && !repeatedQ) { repeatedQ = true; interject(s.text, 'Savol takrorlanmoqda…'); return; }
+        if (repeatedQ && waited >= s.grace + 3) return stop('no-answer');
+        return;
+      }
+      if (silent >= s.silence) {                                    // gapirdi va jim qoldi
+        if (s.part === 2 && spent < (s.min || 60) && !askedMore) {
+          askedMore = true; interject('Is that everything you would like to say?', 'Examiner so\'ramoqda…');
+          return;
+        }
+        return stop('silence');
+      }
+    }, 200);
+  });
+}
+
+// --- javob yozib bo'lingach: yuborish, kerak bo'lsa qo'shimcha savol, keyingi qadam ---
+async function afterAnswer(s, sec, why) {
+  const type = (rec && rec.mimeType) || 'audio/webm';
+  const blob = new Blob(chunks, { type });
+  const tiny = blob.size < 2000 || why === 'no-answer';
+  let item = null;
+  if (!tiny) {
+    item = queueUpload(s.idx, { blob, type, sec }, s);
+    paintSendState(s.idx);
+  } else {
+    $('#transcript-preview').innerHTML = '<span class="muted">Javob yozilmadi — keyingi savolga o\'tamiz.</span>';
+  }
+
+  if (s.part === 2 && item) {
+    // kartochka javobidan keyin AI ning 1-2 ta qo'shimcha savoli (javobga bog'liq)
+    await speak('Thank you.');
+    show('#phase-think', true);
+    $('#think-text').textContent = 'Examiner savol tayyorlamoqda…';
+    await item.promise;
+    show('#phase-think', false);
+    const ups = (item.followups || []).slice(0, rules.roundoff_max || 2);
+    insertExtras(ups.length ? ups : ['How did you feel about that experience?'], 2);
+  } else if (s.part === 3 && item && !s.extra && sec < (rules.short_answer_sec || 15) && !probed.has(s.idx)) {
+    // juda qisqa javob — shu savol bo'yicha bir marta "biroz ko'proq" deb so'raymiz
+    probed.add(s.idx);
+    insertExtras(['Could you tell me a bit more about that?'], 3);
+  }
+
+  step++;
+  return runStep();
+}
+// qo'shimcha savollarni rejaga joylaymiz (idx larni buzmasdan — yangi idx lar 1000 dan boshlanadi)
+let extraIdx = 1000;
+function insertExtras(questions, part) {
+  const items = questions.filter(Boolean).map((text) => ({
+    idx: extraIdx++, part, topic: '', text, bullets: [], graded: true, extra: true,
+    ...(part === 3 ? { grace: 6, silence: 4, max: 45 } : { grace: 5, silence: 3, max: 40 }),
+  }));
+  plan.splice(step + 1, 0, ...items);
+}
+
+// --- javob fonda yuboriladi va baholanadi ---
 const pending = new Map();
 const toB64 = (blob) => new Promise((resolve, reject) => {
   const fr = new FileReader();
@@ -344,23 +521,8 @@ const toB64 = (blob) => new Promise((resolve, reject) => {
   fr.onerror = () => reject(new Error('Audio o\'qilmadi'));
   fr.readAsDataURL(blob);
 });
-
-async function finishRecording(s) {
-  clearInterval(timer); cancelAnimationFrame(levelRaf);
-  $('#level').style.width = '0%';
-  const type = rec.mimeType || 'audio/webm';
-  const blob = new Blob(chunks, { type });
-  lastBlob = { blob, type, sec: Math.round(blob.size / 4000) };
-  show('#phase-record', false);
-  queueUpload(s.idx, lastBlob);
-  show('#exam-error', false); show('#retry-btn', false); show('#skip-btn', false);
-  if (s.idx === session.plan.length - 1) $('#next-btn').textContent = 'Imtihonni yakunlash va natijani ko\'rish →';
-  show('#phase-next', true);
-  paintSendState(s.idx);
-}
-
-function queueUpload(idx, media) {
-  const item = { idx, blob: media.blob, mime: media.type.split(';')[0], sec: media.sec, state: 'sending' };
+function queueUpload(idx, media, s) {
+  const item = { idx, blob: media.blob, mime: media.type.split(';')[0], sec: media.sec, state: 'sending', step: s };
   item.promise = send(item);
   pending.set(idx, item);
   return item;
@@ -368,35 +530,26 @@ function queueUpload(idx, media) {
 async function send(item) {
   try {
     const b64 = await toB64(item.blob);
+    const s = item.step || {};
     const r = await api(`/api/speaking/sessions/${session.session_id}/answers`, {
       idx: item.idx, audio: b64, mime: item.mime, duration_sec: item.sec,
+      question: s.extra ? s.text : undefined, part: s.extra ? s.part : undefined,
+      graded: s.graded === false ? false : undefined,
     });
-    item.state = 'done'; item.transcript = r.transcript || '';
+    item.state = 'done'; item.transcript = r.transcript || ''; item.followups = r.followups || []; item.tooShort = r.too_short;
   } catch (ex) {
     item.state = 'failed'; item.error = ex.message;
   }
-  if (step === item.idx) paintSendState(item.idx);
+  const cur = plan[step];
+  if (cur && cur.idx === item.idx) paintSendState(item.idx);
+  return item;
 }
 function paintSendState(idx) {
   const it = pending.get(idx); if (!it) return;
   const el = $('#transcript-preview');
-  if (it.state === 'sending') el.innerHTML = '<span class="muted">⬆ Javobingiz yuborilmoqda — kutib o\'tirmang, keyingi savolga o\'tavering.</span>';
+  if (it.state === 'sending') el.innerHTML = '<span class="muted">⬆ Javobingiz yuborilmoqda…</span>';
   else if (it.state === 'done') el.innerHTML = '<span class="ok-text">✓ Javob qabul qilindi</span>';
   else el.innerHTML = `<span class="err-text">⚠ Yuborishda xatolik: ${esc(it.error || '')}</span>`;
-}
-
-$('#retry-btn').onclick = () => {
-  const it = pending.get(step);
-  if (it) { it.state = 'sending'; it.promise = send(it); paintSendState(step); }
-  show('#retry-btn', false);
-};
-$('#skip-btn').onclick = () => nextStep();
-$('#next-btn').onclick = () => nextStep();
-
-function nextStep() {
-  step++;
-  if (step < session.plan.length) showStep();
-  else finishExam();
 }
 
 async function finishExam() {
