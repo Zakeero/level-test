@@ -195,7 +195,14 @@
       <h2 style="margin:0">Speaking savollar banki</h2><span class="spacer"></span>
       <button id="sp-new-topic">+ Yangi mavzu</button>
     </div>
-    <p class="muted" style="margin-top:10px">Har bir imtihonda Part 1 uchun bitta mavzu, Part 2 va Part 3 uchun boshqa mavzu tasodifiy tanlanadi. Mavzuda kamida 4 ta Part 1 savoli, 1 ta kartochka va 3 ta Part 3 savoli bo'lgani ma'qul.</p>
+    <p class="muted" style="margin-top:10px">O'quvchilarga <b>faqat shu yerdagi savollar</b> tushadi. Har bir imtihonda Part 1 uchun bir necha mavzu,
+      Part 2 kartochkasi va Part 3 uchun o'sha kartochka mavzusi tasodifiy tanlanadi — shuning uchun ikki o'quvchida savollar bir xil bo'lmaydi.</p>
+    <ul class="muted" style="margin:0 0 4px 18px;font-size:14px">
+      <li><b>Part 1</b> — qisqa savollar (o'zi, shahri, ishi haqida). Mavzuda kamida 3–4 ta bo'lsin.</li>
+      <li><b>Part 2</b> — kartochka: bitta mavzu matni va 4 ta band ("You should say").</li>
+      <li><b>Part 3</b> — chuqurroq muhokama savollari, kartochka mavzusiga bog'liq. 3–4 ta bo'lsin.</li>
+    </ul>
+    <p class="mini muted">Savollar soni va vaqtlar — <b>⚙️ Imtihon sozlamalari</b> bo'limida.</p>
   </div>
   <div id="sp-topics"></div>
 </main>
@@ -323,6 +330,23 @@
 </form></dialog>
 
 <!-- Speaking savol formasi -->
+<!-- Speaking: ko'p savolni birvarakayiga qo'shish -->
+<dialog id="sp-bulk-dlg"><form class="card" id="sp-bulk-form" method="dialog">
+  <h2>Ko'p savol qo'shish</h2>
+  <p class="muted">Har bir savolni alohida qatorga yozing. Raqam yoki tire bilan boshlansa, o'zi tozalanadi.</p>
+  <label>Qaysi qism</label>
+  <select name="part" id="sp-bulk-part">
+    <option value="1">Part 1 — qisqa savollar</option>
+    <option value="3">Part 3 — muhokama savollari</option>
+  </select>
+  <label>Savollar *</label>
+  <textarea name="text" id="sp-bulk-text" required style="min-height:180px" placeholder="Do you work or are you a student?&#10;What do you do in your free time?&#10;How often do you use the internet?"></textarea>
+  <p class="mini muted" id="sp-bulk-count"></p>
+  <div id="sp-bulk-error" class="error hidden"></div>
+  <div class="row" style="margin-top:16px"><span class="spacer"></span>
+    <button type="button" class="btn-light" data-close>Bekor qilish</button><button type="submit">Qo'shish</button></div>
+</form></dialog>
+
 <dialog id="sp-item-dlg"><form class="card" id="sp-item-form" method="dialog">
   <h2>Savol</h2>
   <label>Qaysi qism</label>
@@ -1207,6 +1231,7 @@ async function loadSpBank() {
         ${t.active ? '' : '<span class="pill warn">nofaol</span>'}
         <span class="spacer"></span>
         <button class="btn-sm" data-sp-add="${t.id}">+ Savol</button>
+        <button class="btn-light btn-sm" data-sp-bulk="${t.id}">📋 Ko'p savol</button>
         <button class="btn-light btn-sm" data-sp-edit="${t.id}">Tahrirlash</button>
         <button class="btn-danger btn-sm" data-sp-del="${t.id}">O'chirish</button>
       </header>
@@ -1220,6 +1245,7 @@ async function loadSpBank() {
       </tbody></table></div></div>`;
   }).join('') || '<div class="card muted">Mavzular yo\'q. "+ Yangi mavzu" tugmasini bosing.</div>';
   document.querySelectorAll('[data-sp-add]').forEach((b) => b.onclick = () => openSpItem(null, +b.dataset.spAdd));
+  document.querySelectorAll('[data-sp-bulk]').forEach((b) => b.onclick = () => openSpBulk(+b.dataset.spBulk));
   document.querySelectorAll('[data-sp-edit]').forEach((b) => b.onclick = () => openSpTopic(spTopics.find((t) => t.id === +b.dataset.spEdit)));
   document.querySelectorAll('[data-sp-del]').forEach((b) => b.onclick = async () => {
     const t = spTopics.find((x) => x.id === +b.dataset.spDel);
@@ -1236,6 +1262,30 @@ async function loadSpBank() {
     await spApi('/items/' + b.dataset.spiDel, 'DELETE'); loadSpBank();
   });
 }
+// ko'p savolni birvarakayiga qo'shish
+let spBulkTopic = null;
+function openSpBulk(topicId) {
+  spBulkTopic = topicId;
+  $('#sp-bulk-form').reset(); showErr($('#sp-bulk-error'), '');
+  $('#sp-bulk-count').textContent = '';
+  $('#sp-bulk-dlg').showModal();
+  setTimeout(() => $('#sp-bulk-text').focus(), 50);
+}
+const bulkLines = (v) => v.split('\n').map((l) => l.replace(/^\s*[-•*\d]+[.)]?\s*/, '').trim()).filter((l) => l.length > 4);
+$('#sp-bulk-text').addEventListener('input', (e) => {
+  const n = bulkLines(e.target.value).length;
+  $('#sp-bulk-count').textContent = n ? `${n} ta savol qo'shiladi` : '';
+});
+$('#sp-bulk-form').onsubmit = async (e) => {
+  e.preventDefault();
+  try {
+    const r = await spApi(`/topics/${spBulkTopic}/items/bulk`, 'POST', { part: +$('#sp-bulk-part').value, text: $('#sp-bulk-text').value });
+    $('#sp-bulk-dlg').close();
+    loadSpBank();
+    alert(`${r.added} ta savol qo'shildi`);
+  } catch (ex) { showErr($('#sp-bulk-error'), ex.message); }
+};
+
 $('#sp-new-topic').onclick = () => openSpTopic(null);
 function openSpTopic(t) {
   spEditTopic = t; const f = $('#sp-topic-form'); f.reset(); showErr($('#sp-topic-error'), '');
