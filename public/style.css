@@ -322,3 +322,6 @@ code.codev { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-s
 .exam-opt.sel { border-color: var(--brand); background: var(--brand-50); }
 a.exam-opt:hover { border-color: var(--brand-200); background: var(--brand-50); }
 .brand-link { color: var(--brand-ink); }
+.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0 14px; }
+@media (max-width: 860px) { .grid4 { grid-template-columns: repeat(2, 1fr); } }
+#spset-view table input[type=number] { width: 90px; padding: 7px 9px; }

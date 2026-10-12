@@ -48,7 +48,7 @@
         <strong>🎙 Qanday o'tadi</strong>
         <ul>
           <li>Imtihon oluvchi (AI) siz bilan salomlashadi, so'ng savollarni ovozda beradi — xuddi haqiqiy suhbatdek.</li>
-          <li><b>Tugma bosish shart emas:</b> savol tugashi bilan mikrofon o'zi yonadi, siz jim qolganingizda o'zi keyingi savolga o'tadi. Xohlasangiz "Tugatdim" tugmasini bosasiz.</li>
+          <li><b>Mikrofon o'zi yonadi</b> — tugma bosish shart emas. O'rtada o'ylab turishingiz mumkin: javob vaqti tugaguncha kutiladi. Erta tugatsangiz "Tugatdim" tugmasini bosasiz.</li>
           <li><b>Part 1</b> — 3–5 qisqa savol: har biriga 10 soniya o'ylash, 30 soniya javob. <b>Part 2</b> — kartochka: 1 daqiqa tayyorgarlik, 2 daqiqagacha gapirish. <b>Part 3</b> — 3–5 muhokama savoli: 10 soniya o'ylash, 30 soniya javob.</li>
           <li>O'ylash vaqti javob vaqtidan alohida — gapira boshlaganingizda javob taymeri yurib ketadi.</li>
           <li>Tinch xonada o'tiring, iloji bo'lsa naushnik taqing — shunda mikrofon ovozingizni to'g'ri ajratadi.</li>
@@ -273,7 +273,7 @@ $('#start-form').onsubmit = async (e) => {
 // ---------- 2-qadam: imtihon (suhbat dvigateli) ----------
 const show = (id, on) => $(id).classList.toggle('hidden', !on);
 const PART_NAME = { 0: 'Tanishuv', 1: 'Part 1', 2: 'Part 2', 3: 'Part 3' };
-let plan = [], rules = {}, partStarted = {}, probed = new Set(), repeated = new Set(), nudged = new Set();
+let plan = [], rules = {}, T = {}, partStarted = {}, probed = new Set(), repeated = new Set(), nudged = new Set();
 let listening = false, stopReason = '', vad = { floor: 0.004, voice: false, lastVoice: 0, started: false, raf: 0 };
 
 // --- AI ovozi: gapirib bo'lgunicha kutamiz (so'ngra mikrofon yoqiladi) ---
@@ -351,7 +351,18 @@ if (new URLSearchParams(location.search).get('mock') === '1') {
 // --- imtihonni boshlash ---
 async function runExam() {
   plan = session.plan.slice();
-  rules = session.rules || { budget: { 1: 300, 3: 300 }, roundoff_max: 2, short_answer_sec: 15, closing: 'Thank you. That is the end of the speaking test.' };
+  rules = session.rules || {};
+  rules.budget = rules.budget || { 1: 240, 3: 240 };
+  // AI aytadigan matnlar admin paneldan keladi; bo'lmasa — standart variant
+  T = Object.assign({
+    part2_start: 'All right. Remember you have one to two minutes. Please start speaking now.',
+    part2_nudge: 'Is that everything you would like to say?',
+    thanks: 'Thank you.',
+    probe: 'Could you tell me a bit more about that?',
+    roundoff_fallback: 'How did you feel about that experience?',
+    closing: 'Thank you. That is the end of the speaking test.',
+  }, rules.texts || {});
+  if (!rules.closing) rules.closing = T.closing;
   $('#q-text').textContent = 'Mikrofon tekshirilmoqda — bir lahza jim turing…';
   if (!window.__mock) await calibrate(); else startVad();
   step = 0;
@@ -410,7 +421,7 @@ function prepPhase(s) {
     const end = async () => {
       if (done) return; done = true;
       clearInterval(timer); show('#phase-prep', false); $('#skip-prep').onclick = null;
-      await speak('All right. Remember you have one to two minutes. Please start speaking now.');
+      await speak(T.part2_start);
       resolve();
     };
     clearInterval(timer);
@@ -423,8 +434,9 @@ function prepPhase(s) {
 }
 
 // --- javobni tinglash: avtomatik boshlanadi va avtomatik tugaydi ---
-// Bitta yozuv davomida: o'ylash vaqti → gapirish → sukunat → to'xtash.
+// Bitta yozuv davomida: o'ylash vaqti → gapirish → vaqt tugashi yoki "Tugatdim".
 // Javob taymeri (max) gapirish boshlangan paytdan hisoblanadi, o'ylash vaqti unga kirmaydi.
+// O'rtada jim qolish javobni tugatmaydi — o'quvchi o'ylab, davom etishi mumkin.
 // Savolni takrorlash va "Is that everything?" o'sha yozuv ichida bo'lib o'tadi.
 function listen(s) {
   return new Promise((resolve) => {
@@ -437,13 +449,13 @@ function listen(s) {
     rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
 
     let started = Date.now(), graceFrom = Date.now();
-    let askedMore = false, repeatedQ = false, busy = false, ended = false, everSpoke = false;
+    let askedMore = false, repeatedQ = false, busy = false, ended = false, everSpoke = false, hinted = false;
     vad.started = false; vad.lastVoice = 0; listening = true;
     show('#phase-record', true);
     $('#mic-state').textContent = 'Tinglanmoqda…';
     $('#rec-hint').textContent = s.part === 2
-      ? 'Kamida 1 daqiqa gapiring — tugaganingizda o\'zi to\'xtaydi.'
-      : 'Javob bering — jim turganingizda o\'zi keyingi savolga o\'tadi.';
+      ? 'Kamida 1 daqiqa gapiring. Vaqt tugaguncha davom etishingiz mumkin.'
+      : 'Javob bering — o\'rtada o\'ylab turishingiz mumkin, vaqt oxirigacha kutiladi.';
 
     const stop = (why) => {
       if (ended) return; ended = true; listening = false;
@@ -484,18 +496,23 @@ function listen(s) {
         if (repeatedQ && waited >= (s.think || 10) + 5) return stop('no-answer');
         return;
       }
-      if (!speakFrom) { speakFrom = vad.lastVoice || now; everSpoke = true; $('#mic-state').textContent = 'Javob yozilmoqda'; }
+      if (!speakFrom) {
+        speakFrom = vad.lastVoice || now; everSpoke = true;
+        $('#mic-state').textContent = 'Javob yozilmoqda';
+        $('#rec-hint').textContent = 'Shoshilmang — o\'ylab, davom etishingiz mumkin. Tugatgach "Tugatdim" tugmasini bosing.';
+      }
       const spoken = (now - speakFrom) / 1000;
       $('#rec-time').textContent = mmss(Math.max(0, s.max - spoken));
 
-      if (spoken >= s.max) return stop('max');                      // javob vaqti tugadi
-      if (silent >= s.silence) {                                    // gapirdi va jim qoldi
-        if (s.part === 2 && spoken < (s.min || 45) && !askedMore) {
-          askedMore = true; interject('Is that everything you would like to say?', 'Examiner so\'ramoqda…');
+      // Jim qolish javobni tugatmaydi: vaqt oxirigacha kutiladi yoki o'quvchi "Tugatdim" ni bosadi
+      if (spoken >= s.max) return stop('max');
+      if (silent >= (s.silence || 3)) {
+        if (s.part === 2 && spoken < (s.min || 45) && !askedMore) {   // kartochkada juda erta to'xtasa — bir marta turtki
+          askedMore = true; interject(T.part2_nudge, 'Examiner so\'ramoqda…');
           speakFrom = 0;
           return;
         }
-        return stop('silence');
+        if (!hinted) { hinted = true; $('#rec-hint').textContent = 'Tugatgan bo\'lsangiz "Tugatdim" tugmasini bosing — aks holda vaqt tugaguncha kutiladi.'; }
       }
     }, 200);
   });
@@ -516,17 +533,17 @@ async function afterAnswer(s, sec, why) {
 
   if (s.part === 2 && item) {
     // kartochka javobidan keyin AI ning 1-2 ta qo'shimcha savoli (javobga bog'liq)
-    await speak('Thank you.');
+    await speak(T.thanks);
     show('#phase-think', true);
     $('#think-text').textContent = 'Examiner savol tayyorlamoqda…';
     await item.promise;
     show('#phase-think', false);
     const ups = (item.followups || []).slice(0, rules.roundoff_max || 2);
-    insertExtras(ups.length ? ups : ['How did you feel about that experience?'], 2);
+    insertExtras(ups.length ? ups : [T.roundoff_fallback], 2);
   } else if (s.part === 3 && item && !s.extra && sec < (rules.short_answer_sec || 15) && !probed.has(s.idx)) {
     // juda qisqa javob — shu savol bo'yicha bir marta "biroz ko'proq" deb so'raymiz
     probed.add(s.idx);
-    insertExtras(['Could you tell me a bit more about that?'], 3);
+    insertExtras([T.probe], 3);
   }
 
   step++;

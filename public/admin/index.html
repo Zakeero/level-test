@@ -166,6 +166,7 @@
   <div class="card">
     <div class="row">
       <h2 style="margin:0">Speaking natijalari</h2><span class="spacer"></span>
+      <button class="btn-light btn-sm" id="sp-set-btn">⚙️ Imtihon sozlamalari</button>
       <button class="btn-light btn-sm" id="sp-codes-btn">🔑 Kirish kodlari</button>
       <button class="btn-light btn-sm" id="sp-bank-btn">📚 Savollar banki</button>
     </div>
@@ -197,6 +198,90 @@
     <p class="muted" style="margin-top:10px">Har bir imtihonda Part 1 uchun bitta mavzu, Part 2 va Part 3 uchun boshqa mavzu tasodifiy tanlanadi. Mavzuda kamida 4 ta Part 1 savoli, 1 ta kartochka va 3 ta Part 3 savoli bo'lgani ma'qul.</p>
   </div>
   <div id="sp-topics"></div>
+</main>
+
+<!-- Speaking imtihon sozlamalari -->
+<main class="wrap wide hidden" id="spset-view">
+  <div class="card">
+    <div class="row">
+      <button class="btn-light btn-sm" id="sps-back">← Natijalar</button>
+      <h2 style="margin:0">Imtihon sozlamalari</h2><span class="spacer"></span>
+      <button class="btn-light btn-sm" id="sps-reset">Standart holatga qaytarish</button>
+    </div>
+    <p class="muted" style="margin-top:10px">Bu yerdagi o'zgarishlar keyingi imtihonlardan boshlab kuchga kiradi. Savollarning o'zi
+      <b>📚 Savollar banki</b> bo'limida kiritiladi.</p>
+  </div>
+
+  <form id="sps-form">
+    <div class="card">
+      <h2>Savollar soni</h2>
+      <div class="grid4">
+        <div><label for="c-p1t">Part 1 — nechta mavzu</label><input id="c-p1t" type="number" min="1" max="5"></div>
+        <div><label for="c-p1q">Part 1 — har mavzudan savol</label><input id="c-p1q" type="number" min="1" max="8"></div>
+        <div><label for="c-p3min">Part 3 — eng kami</label><input id="c-p3min" type="number" min="1" max="10"></div>
+        <div><label for="c-p3max">Part 3 — eng ko'pi</label><input id="c-p3max" type="number" min="1" max="10"></div>
+      </div>
+      <p class="mini muted" id="c-total"></p>
+    </div>
+
+    <div class="card">
+      <h2>Vaqtlar (soniyada)</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Qism</th><th>O'ylash</th><th>Javob (eng ko'pi)</th><th>Tayyorgarlik</th><th>Sukunat*</th><th>Qism uchun umumiy</th></tr></thead>
+        <tbody>
+          <tr><td><b>Tanishuv</b></td>
+            <td><input id="t0-think" type="number" min="0" max="120"></td>
+            <td><input id="t0-max" type="number" min="10" max="600"></td>
+            <td class="muted">—</td>
+            <td><input id="t0-silence" type="number" min="1" max="30"></td>
+            <td class="muted">—</td></tr>
+          <tr><td><b>Part 1</b></td>
+            <td><input id="t1-think" type="number" min="0" max="120"></td>
+            <td><input id="t1-max" type="number" min="10" max="600"></td>
+            <td class="muted">—</td>
+            <td><input id="t1-silence" type="number" min="1" max="30"></td>
+            <td><input id="b1" type="number" min="60" max="1800"></td></tr>
+          <tr><td><b>Part 2</b></td>
+            <td><input id="t2-think" type="number" min="0" max="120"></td>
+            <td><input id="t2-max" type="number" min="10" max="600"></td>
+            <td><input id="t2-prep" type="number" min="0" max="300"></td>
+            <td><input id="t2-silence" type="number" min="1" max="30"></td>
+            <td class="muted">—</td></tr>
+          <tr><td><b>Part 3</b></td>
+            <td><input id="t3-think" type="number" min="0" max="120"></td>
+            <td><input id="t3-max" type="number" min="10" max="600"></td>
+            <td class="muted">—</td>
+            <td><input id="t3-silence" type="number" min="1" max="30"></td>
+            <td><input id="b3" type="number" min="60" max="1800"></td></tr>
+        </tbody>
+      </table></div>
+      <p class="mini muted">* Sukunat javobni tugatmaydi — faqat Part 2 da "yana aytasizmi?" degan turtki uchun va ekrandagi maslahat uchun ishlatiladi.</p>
+      <div class="grid2">
+        <div><label for="c-round">Part 2 dan keyin qo'shimcha savollar soni</label><input id="c-round" type="number" min="0" max="4"></div>
+        <div><label for="c-short">Qisqa javob chegarasi (Part 3, soniya)</label><input id="c-short" type="number" min="0" max="120"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Imtihon oluvchining gaplari</h2>
+      <p class="muted">Bular o'quvchiga ovozda o'qiladi. Inglizchada yozing.</p>
+      <label for="x-intro">Tanishuv savollari (har biri yangi qatordan)</label>
+      <textarea id="x-intro" rows="3"></textarea>
+      <div class="grid2">
+        <div><label for="x-p2start">Part 2 — tayyorgarlikdan keyin</label><input id="x-p2start"></div>
+        <div><label for="x-p2nudge">Part 2 — erta to'xtaganda</label><input id="x-p2nudge"></div>
+        <div><label for="x-thanks">Javobdan keyin minnatdorchilik</label><input id="x-thanks"></div>
+        <div><label for="x-probe">Qisqa javobda</label><input id="x-probe"></div>
+        <div><label for="x-fallback">Qo'shimcha savol (AI tuza olmasa)</label><input id="x-fallback"></div>
+        <div><label for="x-closing">Imtihon yakuni</label><input id="x-closing"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row"><button type="submit">Saqlash</button>
+        <span class="muted mini" id="sps-saved"></span></div>
+    </div>
+  </form>
 </main>
 
 <!-- Speaking kirish kodlari -->
@@ -410,7 +495,7 @@ function logout() {
 }
 $('#logout').onclick = logout;
 
-const TAB_OF = { results: 'results', tests: 'tests', content: 'tests', people: 'people', speaking: 'speaking', spbank: 'speaking', spcodes: 'speaking' };
+const TAB_OF = { results: 'results', tests: 'tests', content: 'tests', people: 'people', speaking: 'speaking', spbank: 'speaking', spcodes: 'speaking', spset: 'speaking' };
 function show(view) {
   document.querySelectorAll('main').forEach((m) => m.classList.add('hidden'));
   $(`#${view}-view`).classList.remove('hidden');
@@ -942,6 +1027,66 @@ const spFilters = () => {
 };
 let spT;
 ['#sp-search', '#sp-teacher', '#sp-status', '#sp-type'].forEach((s) => $(s).addEventListener('input', () => { clearTimeout(spT); spT = setTimeout(loadSpeaking, 300); }));
+
+// ---------- imtihon sozlamalari ----------
+$('#sp-set-btn').onclick = () => { show('spset'); loadSpSettings(); };
+$('#sps-back').onclick = () => { show('speaking'); loadSpeaking(); };
+
+const SPS_NUM = [
+  ['#c-p1t', 'counts.p1_topics'], ['#c-p1q', 'counts.p1_per_topic'], ['#c-p3min', 'counts.p3_min'], ['#c-p3max', 'counts.p3_max'],
+  ['#c-round', 'roundoff_max'], ['#c-short', 'short_answer_sec'], ['#b1', 'budget.1'], ['#b3', 'budget.3'],
+  ['#t0-think', 'timings.0.think'], ['#t0-max', 'timings.0.max'], ['#t0-silence', 'timings.0.silence'],
+  ['#t1-think', 'timings.1.think'], ['#t1-max', 'timings.1.max'], ['#t1-silence', 'timings.1.silence'],
+  ['#t2-think', 'timings.2.think'], ['#t2-max', 'timings.2.max'], ['#t2-silence', 'timings.2.silence'], ['#t2-prep', 'timings.2.prep'],
+  ['#t3-think', 'timings.3.think'], ['#t3-max', 'timings.3.max'], ['#t3-silence', 'timings.3.silence'],
+];
+const SPS_TEXT = [['#x-p2start', 'part2_start'], ['#x-p2nudge', 'part2_nudge'], ['#x-thanks', 'thanks'],
+  ['#x-probe', 'probe'], ['#x-fallback', 'roundoff_fallback'], ['#x-closing', 'closing']];
+const dig = (o, path) => path.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
+const put = (o, path, v) => { const ks = path.split('.'); let a = o; ks.slice(0, -1).forEach((k) => { a[k] = a[k] || {}; a = a[k]; }); a[ks[ks.length - 1]] = v; };
+
+async function loadSpSettings() {
+  const d = await spApi('/settings');
+  fillSpSettings(d.current);
+}
+function fillSpSettings(c) {
+  SPS_NUM.forEach(([sel, path]) => { $(sel).value = dig(c, path); });
+  SPS_TEXT.forEach(([sel, key]) => { $(sel).value = (c.texts || {})[key] || ''; });
+  $('#x-intro').value = (c.texts.intro || []).join('\n');
+  spsTotal();
+}
+function spsTotal() {
+  const n = (s) => +$(s).value || 0;
+  const p1 = n('#c-p1t') * n('#c-p1q'), p3 = n('#c-p3max');
+  const intro = ($('#x-intro').value.split('\n').filter((x) => x.trim())).length;
+  const est = intro * (n('#t0-think') + n('#t0-max'))
+    + p1 * (n('#t1-think') + n('#t1-max'))
+    + n('#t2-prep') + n('#t2-max') + n('#c-round') * (n('#t3-think') + n('#t3-max'))
+    + p3 * (n('#t3-think') + n('#t3-max'));
+  $('#c-total').textContent = `Hozirgi sozlama: Part 1 — ${p1} savol, Part 3 — ${p3} tagacha. Imtihon eng uzunida ~${Math.round(est / 60)} daqiqa.`;
+}
+['#c-p1t', '#c-p1q', '#c-p3min', '#c-p3max', '#c-round', '#t0-think', '#t0-max', '#t1-think', '#t1-max', '#t2-prep', '#t2-max', '#t3-think', '#t3-max', '#x-intro']
+  .forEach((s) => $(s).addEventListener('input', spsTotal));
+
+$('#sps-form').onsubmit = async (e) => {
+  e.preventDefault();
+  const body = {};
+  SPS_NUM.forEach(([sel, path]) => put(body, path, +$(sel).value || 0));
+  const texts = {};
+  SPS_TEXT.forEach(([sel, key]) => { texts[key] = $(sel).value; });
+  texts.intro = $('#x-intro').value.split('\n').map((x) => x.trim()).filter(Boolean);
+  body.texts = texts;
+  const r = await spApi('/settings', 'PUT', body);
+  fillSpSettings(r.current);
+  $('#sps-saved').textContent = '✓ Saqlandi';
+  setTimeout(() => { $('#sps-saved').textContent = ''; }, 2500);
+};
+$('#sps-reset').onclick = async () => {
+  if (!confirm('Barcha sozlamalar standart holatga qaytarilsinmi?')) return;
+  const r = await spApi('/settings', 'PUT', { reset: true });
+  fillSpSettings(r.current);
+  $('#sps-saved').textContent = '✓ Standart holatga qaytarildi';
+};
 
 // ---------- kirish kodlari ----------
 $('#sp-codes-btn').onclick = () => { show('spcodes'); loadSpCodes(); };
