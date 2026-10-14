@@ -345,6 +345,7 @@ if (new URLSearchParams(location.search).get('mock') === '1') {
   window.__mock = true;
   window.__vad = (on) => { vad.mock = !!on; if (on) { vad.lastVoice = Date.now(); if (listening) vad.started = true; } };
   window.__state = () => ({ step, idx: plan[step] && plan[step].idx, part: plan[step] && plan[step].part,
+    roundoff: !!(plan[step] && plan[step].roundoff), extra: !!(plan[step] && plan[step].extra),
     q: plan[step] && plan[step].text, listening, total: plan.length, said: (window.__said || []).slice(-3) });
 }
 
@@ -359,7 +360,6 @@ async function runExam() {
     part2_nudge: 'Is that everything you would like to say?',
     thanks: 'Thank you.',
     probe: 'Could you tell me a bit more about that?',
-    roundoff_fallback: 'How did you feel about that experience?',
     closing: 'Thank you. That is the end of the speaking test.',
   }, rules.texts || {});
   if (!rules.closing) rules.closing = T.closing;
@@ -453,7 +453,7 @@ function listen(s) {
     vad.started = false; vad.lastVoice = 0; listening = true;
     show('#phase-record', true);
     $('#mic-state').textContent = 'Tinglanmoqda…';
-    $('#rec-hint').textContent = s.part === 2
+    $('#rec-hint').textContent = (s.part === 2 && !s.roundoff)
       ? 'Kamida 1 daqiqa gapiring. Vaqt tugaguncha davom etishingiz mumkin.'
       : 'Javob bering — o\'rtada o\'ylab turishingiz mumkin, vaqt oxirigacha kutiladi.';
 
@@ -507,7 +507,7 @@ function listen(s) {
       // Jim qolish javobni tugatmaydi: vaqt oxirigacha kutiladi yoki o'quvchi "Tugatdim" ni bosadi
       if (spoken >= s.max) return stop('max');
       if (silent >= (s.silence || 3)) {
-        if (s.part === 2 && spoken < (s.min || 45) && !askedMore) {   // kartochkada juda erta to'xtasa — bir marta turtki
+        if (s.part === 2 && !s.roundoff && spoken < (s.min || 45) && !askedMore) {   // kartochkada juda erta to'xtasa — bir marta turtki
           askedMore = true; interject(T.part2_nudge, 'Examiner so\'ramoqda…');
           speakFrom = 0;
           return;
@@ -531,17 +531,10 @@ async function afterAnswer(s, sec, why) {
     $('#transcript-preview').innerHTML = '<span class="muted">Javob yozilmadi — keyingi savolga o\'tamiz.</span>';
   }
 
-  if (s.part === 2 && item) {
-    // kartochka javobidan keyin AI ning 1-2 ta qo'shimcha savoli (javobga bog'liq)
-    await speak(T.thanks);
-    show('#phase-think', true);
-    $('#think-text').textContent = 'Examiner savol tayyorlamoqda…';
-    await item.promise;
-    show('#phase-think', false);
-    const ups = (item.followups || []).slice(0, rules.roundoff_max || 2);
-    insertExtras(ups.length ? ups : [T.roundoff_fallback], 2);
-  } else if (s.part === 3 && item && !s.extra && sec < (rules.short_answer_sec || 15) && !probed.has(s.idx)) {
-    // juda qisqa javob — shu savol bo'yicha bir marta "biroz ko'proq" deb so'raymiz
+  // Kartochka javobidan keyin minnatdorchilik; yakuniy savollar rejada (admin bankidan) turadi
+  if (s.part === 2 && !s.roundoff && item) await speak(T.thanks);
+  // Juda qisqa Part 3 javobi — shu savol bo'yicha bir marta admin yozgan turtki savoli beriladi
+  else if (s.part === 3 && item && !s.extra && T.probe && sec < (rules.short_answer_sec ?? 15) && !probed.has(s.idx)) {
     probed.add(s.idx);
     insertExtras([T.probe], 3);
   }
@@ -582,7 +575,7 @@ async function send(item) {
       question: s.extra ? s.text : undefined, part: s.extra ? s.part : undefined,
       graded: s.graded === false ? false : undefined,
     });
-    item.state = 'done'; item.transcript = r.transcript || ''; item.followups = r.followups || []; item.tooShort = r.too_short;
+    item.state = 'done'; item.transcript = r.transcript || ''; item.tooShort = r.too_short;
   } catch (ex) {
     item.state = 'failed'; item.error = ex.message;
   }

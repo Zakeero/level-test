@@ -193,6 +193,7 @@
     <div class="row">
       <button class="btn-light btn-sm" id="sp-back">← Natijalar</button>
       <h2 style="margin:0">Speaking savollar banki</h2><span class="spacer"></span>
+      <button class="btn-light" id="sp-fill-end">+ Namuna yakuniy savollar</button>
       <button id="sp-new-topic">+ Yangi mavzu</button>
     </div>
     <p class="muted" style="margin-top:10px">O'quvchilarga <b>faqat shu yerdagi savollar</b> tushadi. Har bir imtihonda Part 1 uchun bir necha mavzu,
@@ -200,8 +201,10 @@
     <ul class="muted" style="margin:0 0 4px 18px;font-size:14px">
       <li><b>Part 1</b> — qisqa savollar (o'zi, shahri, ishi haqida). Mavzuda kamida 3–4 ta bo'lsin.</li>
       <li><b>Part 2</b> — kartochka: bitta mavzu matni va 4 ta band ("You should say").</li>
+      <li><b>Part 2 — yakuniy savollar</b> — kartochka javobidan keyin beriladigan 1–2 ta qisqa savol (rounding-off).</li>
       <li><b>Part 3</b> — chuqurroq muhokama savollari, kartochka mavzusiga bog'liq. 3–4 ta bo'lsin.</li>
     </ul>
+    <p class="mini muted"><b>Muhim:</b> AI savol o'ylab topmaydi — o'quvchi faqat shu yerda yozilgan savollarni eshitadi.</p>
     <p class="mini muted">Savollar soni va vaqtlar — <b>⚙️ Imtihon sozlamalari</b> bo'limida.</p>
   </div>
   <div id="sp-topics"></div>
@@ -264,7 +267,7 @@
       </table></div>
       <p class="mini muted">* Sukunat javobni tugatmaydi — faqat Part 2 da "yana aytasizmi?" degan turtki uchun va ekrandagi maslahat uchun ishlatiladi.</p>
       <div class="grid2">
-        <div><label for="c-round">Part 2 dan keyin qo'shimcha savollar soni</label><input id="c-round" type="number" min="0" max="4"></div>
+        <div><label for="c-round">Part 2 dan keyin beriladigan yakuniy savollar soni (bankdan)</label><input id="c-round" type="number" min="0" max="4"></div>
         <div><label for="c-short">Qisqa javob chegarasi (Part 3, soniya)</label><input id="c-short" type="number" min="0" max="120"></div>
       </div>
     </div>
@@ -278,8 +281,7 @@
         <div><label for="x-p2start">Part 2 — tayyorgarlikdan keyin</label><input id="x-p2start"></div>
         <div><label for="x-p2nudge">Part 2 — erta to'xtaganda</label><input id="x-p2nudge"></div>
         <div><label for="x-thanks">Javobdan keyin minnatdorchilik</label><input id="x-thanks"></div>
-        <div><label for="x-probe">Qisqa javobda</label><input id="x-probe"></div>
-        <div><label for="x-fallback">Qo'shimcha savol (AI tuza olmasa)</label><input id="x-fallback"></div>
+        <div><label for="x-probe">Qisqa javobda (bo'sh qoldirsangiz — berilmaydi)</label><input id="x-probe"></div>
         <div><label for="x-closing">Imtihon yakuni</label><input id="x-closing"></div>
       </div>
     </div>
@@ -337,6 +339,7 @@
   <label>Qaysi qism</label>
   <select name="part" id="sp-bulk-part">
     <option value="1">Part 1 — qisqa savollar</option>
+    <option value="4">Part 2 — yakuniy savollar (kartochkadan keyin)</option>
     <option value="3">Part 3 — muhokama savollari</option>
   </select>
   <label>Savollar *</label>
@@ -353,7 +356,8 @@
   <select name="part">
     <option value="1">Part 1 — qisqa savol (30 soniya)</option>
     <option value="2">Part 2 — kartochka (1 daq tayyorgarlik + 2 daq)</option>
-    <option value="3">Part 3 — muhokama savoli (45 soniya)</option>
+    <option value="4">Part 2 — yakuniy savol (kartochkadan keyin, 30 soniya)</option>
+    <option value="3">Part 3 — muhokama savoli (30 soniya)</option>
   </select>
   <label>Savol / kartochka matni *</label><textarea name="text" required style="min-height:70px" placeholder="Describe a person who has influenced you."></textarea>
   <div id="sp-bullets-box"><label>Kartochka bandlari (har biri alohida qatorda)</label>
@@ -1065,7 +1069,7 @@ const SPS_NUM = [
   ['#t3-think', 'timings.3.think'], ['#t3-max', 'timings.3.max'], ['#t3-silence', 'timings.3.silence'],
 ];
 const SPS_TEXT = [['#x-p2start', 'part2_start'], ['#x-p2nudge', 'part2_nudge'], ['#x-thanks', 'thanks'],
-  ['#x-probe', 'probe'], ['#x-fallback', 'roundoff_fallback'], ['#x-closing', 'closing']];
+  ['#x-probe', 'probe'], ['#x-closing', 'closing']];
 const dig = (o, path) => path.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
 const put = (o, path, v) => { const ks = path.split('.'); let a = o; ks.slice(0, -1).forEach((k) => { a[k] = a[k] || {}; a = a[k]; }); a[ks[ks.length - 1]] = v; };
 
@@ -1219,15 +1223,18 @@ async function openSpSession(id) {
 // --- savollar banki ---
 $('#sp-bank-btn').onclick = () => { show('spbank'); loadSpBank(); };
 $('#sp-back').onclick = () => { show('speaking'); loadSpeaking(); };
-const PART_NAME = { 1: 'Part 1', 2: 'Part 2 (kartochka)', 3: 'Part 3' };
+const PART_NAME = { 1: 'Part 1', 2: 'Part 2 (kartochka)', 4: 'Part 2 (yakuniy savol)', 3: 'Part 3' };
 async function loadSpBank() {
   spTopics = await spApi('/topics');
   $('#sp-topics').innerHTML = spTopics.map((t) => {
-    const counts = [1, 2, 3].map((p) => t.items.filter((i) => i.part === p).length);
+    const n = (p) => t.items.filter((i) => i.part === p).length;
+    const counts = [n(1), n(2), n(3), n(4)];
+    const needEnd = counts[1] > 0 && counts[3] === 0;
     return `<div class="admin-passage">
       <header>
         <b>${esc(t.title)}</b>
-        <span class="pill">P1: ${counts[0]}</span><span class="pill">P2: ${counts[1]}</span><span class="pill">P3: ${counts[2]}</span>
+        <span class="pill">P1: ${counts[0]}</span><span class="pill">P2: ${counts[1]}</span>
+        <span class="pill${needEnd ? ' warn' : ''}">P2 yakun: ${counts[3]}</span><span class="pill">P3: ${counts[2]}</span>
         ${t.active ? '' : '<span class="pill warn">nofaol</span>'}
         <span class="spacer"></span>
         <button class="btn-sm" data-sp-add="${t.id}">+ Savol</button>
@@ -1284,6 +1291,15 @@ $('#sp-bulk-form').onsubmit = async (e) => {
     loadSpBank();
     alert(`${r.added} ta savol qo'shildi`);
   } catch (ex) { showErr($('#sp-bulk-error'), ex.message); }
+};
+
+$('#sp-fill-end').onclick = async () => {
+  if (!confirm('Part 2 kartochkasi bor, ammo yakuniy savoli yo\'q mavzularga namuna savollar qo\'shiladi. Davom etasizmi?')) return;
+  try {
+    const r = await spApi('/seed/roundoff', 'POST', {});
+    alert(r.added ? `${r.added} ta yakuniy savol qo'shildi` : 'Qo\'shiladigan savol topilmadi — mavzularga o\'zingiz yozing');
+    loadSpBank();
+  } catch (ex) { alert(ex.message); }
 };
 
 $('#sp-new-topic').onclick = () => openSpTopic(null);
